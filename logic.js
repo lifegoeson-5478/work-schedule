@@ -59,8 +59,38 @@ const minGo = (month, d, peak) => isRest(month, d) ? (peak ? 4 : 3) : 5;
 const isShort = (team, month, d, c, peak) =>
   team === '런드리24' ? c.am < 1 || c.pm < 1 : c.total < minGo(month, d, peak);
 
-// 승인된 신청 → 로테이션(팀 무관) → 로테이션 없는 런드리고는 남은 휴일을 인원 여유가 큰 날부터 배정
-function autoSchedule(emps, month, approved, rotations, peak) {
+// ---------- 주 5일 근무 (한 주 = 토~금, 월 경계는 앞뒤 달 칸까지 봄) ----------
+const worksOn = c => c === '' || c === '생일'; // 생일은 반차라 근무일로 셈
+// month에 걸친 주들. 각 주 = [{ m: 'YYYY-MM', d }] 7일 (앞뒤 달 날짜 포함)
+function weeksOf(month) {
+  const [y, m] = ym(month), weeks = [];
+  for (let s = 1 - (new Date(y, m - 1, 1).getDay() + 1) % 7; s <= daysIn(month); s += 7)
+    weeks.push(Array.from({ length: 7 }, (_, i) => { const t = new Date(y, m - 1, s + i); return { m: fmtMonth(t), d: t.getDate() }; }));
+  return weeks;
+}
+// 그 주에 확인되는 근무일 수. adj = { prev, next }: 앞뒤 달 cells (없으면 그 날짜는 모르는 날로 빼고 셈)
+function weekWork(e, week, month, cells, adj = {}) {
+  const prev = addMonth(month, -1);
+  let n = 0;
+  for (const { m, d } of week) {
+    const c = m === month ? cells : m === prev ? adj.prev : adj.next;
+    if (c && worksOn(cellOf(e, m, d, c))) n++;
+  }
+  return n;
+}
+// 주 5일 넘게 근무하는 주 → [{ id, work, days: 이번 달 일자들 }]
+function weekIssues(emps, month, cells, adj = {}) {
+  const out = [];
+  for (const w of weeksOf(month)) for (const e of emps) {
+    const work = weekWork(e, w, month, cells, adj);
+    if (work > 5) out.push({ id: e.id, work, days: w.filter(x => x.m === month).map(x => x.d) });
+  }
+  return out;
+}
+
+// 승인된 신청 → 로테이션(팀 무관) → 주 5일 보정 → 로테이션 없는 런드리고는 남은 휴일을 인원 여유가 큰 날부터 배정
+// adj = { prev, next }: 앞뒤 달 cells (월 경계 주 5일 계산용)
+function autoSchedule(emps, month, approved, rotations, peak, adj = {}) {
   const n = daysIn(month), cells = {};
   const on = (e, d) => active(e, ymd(month, d));
   for (const e of emps) cells[e.id] = {};
@@ -76,6 +106,21 @@ function autoSchedule(emps, month, approved, rotations, peak) {
   // 화수목은 목표 6명으로 잡아서 휴일이 덜 몰리게
   const target = d => isRest(month, d) ? minGo(month, d, peak) : [2, 3, 4].includes(dow(month, d)) ? 6 : 5;
   const head = d => go.filter(e => on(e, d) && !cells[e.id][d]).length;
+
+  // 주 5일 초과면 그 주(이번 달 쪽) 안에서 인원 여유가 큰 날을 휴일로
+  const weeks = weeksOf(month);
+  const weekOfDay = d => weeks.find(w => w.some(x => x.m === month && x.d === d));
+  const surplus = (e, d) => e.team === '런드리고' ? head(d) - target(d)
+    : emps.filter(x => x.team === e.team && (x.shift === '13:00') === (e.shift === '13:00') && on(x, d) && !cells[x.id][d]).length - 1;
+  for (const w of weeks) for (const e of emps) {
+    const days = w.filter(x => x.m === month).map(x => x.d);
+    while (weekWork(e, w, month, cells, adj) > 5) {
+      const free = days.filter(d => on(e, d) && !cells[e.id][d]);
+      if (!free.length) break;
+      cells[e.id][free.reduce((a, b) => surplus(e, b) > surplus(e, a) ? b : a)] = '휴일';
+    }
+  }
+
   const need = new Map(flex.map(e => {
     let used = 0;
     for (let d = 1; d <= n; d++) if (cells[e.id][d] === '휴일') used++;
@@ -111,8 +156,11 @@ function autoSchedule(emps, month, approved, rotations, peak) {
       moved = false;
       for (const e of flex) {
         if (cells[e.id][d] !== '휴일' || fixed.has(e.id + '-' + d)) continue;
+        // 휴일을 다른 주로 옮기면 이 주가 5일을 넘을 수 있으니 확인
+        const wd = weekOfDay(d), slack = weekWork(e, wd, month, cells, adj) < 5;
         let d2 = 1;
-        while (d2 <= n && !(on(e, d2) && !cells[e.id][d2] && head(d2) > minGo(month, d2, peak))) d2++;
+        while (d2 <= n && !(on(e, d2) && !cells[e.id][d2] && head(d2) > minGo(month, d2, peak)
+          && (slack || weekOfDay(d2) === wd))) d2++;
         if (d2 > n) continue;
         delete cells[e.id][d];
         cells[e.id][d2] = '휴일';
@@ -153,5 +201,5 @@ function toTSV(emps, month, cells) {
 
 if (typeof module !== 'undefined') module.exports = {
   TEAMS, CODES, DOW, HOLIDAYS, fmtMonth, addMonth, daysIn, ymd, dow, isRest, holidayCount, active, cellOf,
-  restQuota, onRotation, offLimit, canRequest, dayCount, isShort, autoSchedule, rotationGaps, toTSV,
+  restQuota, onRotation, offLimit, canRequest, dayCount, isShort, weeksOf, weekWork, weekIssues, autoSchedule, rotationGaps, toTSV,
 };

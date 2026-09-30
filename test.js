@@ -59,4 +59,28 @@ for (let run = 0; run < 50; run++) {
 }
 assert.deepEqual(L.rotationGaps(emps, '런드리24', M, rot), []);
 assert.deepEqual(L.rotationGaps(emps, '런드리24', M, { 10: '금·토', 11: '금·토', 12: '수·목', 13: '수·목' }), ['수 오후', '목 오후', '금 오전', '토 오전']);
+// 주 5일 (토~금): 2026-10-31(토)~11-06(금)은 10월·11월에 걸침
+assert.deepEqual(L.weeksOf('2026-11')[0].map(x => x.m.slice(5) + '/' + x.d), ['10/31', '11/1', '11/2', '11/3', '11/4', '11/5', '11/6']);
+assert.equal(L.weeksOf('2026-08')[0][0].d, 1);   // 8/1이 토요일이면 그날부터
+{
+  // 로테이션이 10월 수·목 → 11월 금·토로 바뀌면 10/31~11/6 주에 휴무가 11/6 하루뿐 → 보정돼야 함
+  const r24 = e => e.team === '런드리24';
+  const octRot = { 10: '수·목', 11: '수·목', 12: '수·목', 13: '수·목' };
+  const novRot = { 10: '금·토', 11: '일·월', 12: '금·토', 13: '일·월' };
+  for (let run = 0; run < 30; run++) {
+    const oct = L.autoSchedule(emps, '2026-10', [], octRot, false);
+    const nov = L.autoSchedule(emps, '2026-11', [], novRot, false, { prev: oct });
+    assert.deepEqual(L.weekIssues(emps, '2026-11', nov, { prev: oct }), [], '11월 주 5일 초과');
+    assert.deepEqual(L.weekIssues(emps, '2026-10', oct, { next: nov }), [], '10월 주 5일 초과');
+    assert.equal(nov[10][6], '휴일');
+    assert.ok(emps.filter(r24).every(e => L.weekWork(e, L.weeksOf('2026-11')[0], '2026-11', nov, { prev: oct }) <= 5));
+    // 런드리고 자동 배치 인원은 주 5일 보정 후에도 휴일 수 = 주말·공휴일 수
+    for (const e of emps.filter(e => e.team === '런드리고' && !e.end_date && !e.start_date))
+      assert.equal(Object.values(nov[e.id]).filter(c => c === '휴일').length, L.restQuota(e, '2026-11'));
+  }
+  // 앞달 칸이 없으면 모르는 날은 빼고 셈 → 이번 달 쪽만으로 5일 넘으면 문제
+  const allWork = { 2: {} };
+  // 11/1~6(6일), 7~13, 14~20, 21~27 → 4주. 11/28~30은 3일뿐이라 문제 없음
+  assert.equal(L.weekIssues([emps[1]], '2026-11', allWork).length, 4);
+}
 console.log('ok');
