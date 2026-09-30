@@ -170,7 +170,6 @@
   #grid tr.count th, #grid tr.count td { background: var(--bg); font-family: var(--mono); font-size: 12px; border-bottom-color: var(--border); }
   #grid tr.count th { font-family: 'Pretendard', sans-serif; font-size: 12px; font-weight: 700; color: var(--text2); }
   #grid tr.count td.short { background: #FEE2E2; color: #B91C1C; font-weight: 700; }
-  #grid tr.count td.edge { background: #FEF3C7; color: #B45309; font-weight: 700; }
   #grid td.off { background: var(--orange-light); color: var(--orange); }
   #grid td.leave { background: var(--blue-light); color: var(--blue); }
   #grid td.bday { background: var(--purple-light); color: var(--purple); }
@@ -420,7 +419,7 @@
       <div class="legend">
         <span><i></i>근무</span><span><i class="off"></i>휴일</span><span><i class="leave"></i>연차</span>
         <span><i class="bday"></i>생일(반차)</span><span><i class="official"></i>공가</span><span><i class="gone"></i>퇴직</span>
-        <span class="note admin-only">클릭 = 근무코드 변경 · 오른쪽 클릭 = 빈칸 · 파란 테두리 = 대기중 신청 · 빨간 인원 = 최소 인원 부족 · 주황 인원 = 딱 최소 · 빨간 밑줄 = 주(토~금) 5일 초과</span>
+        <span class="note admin-only">클릭 = 근무코드 변경 · 오른쪽 클릭 = 빈칸 · 파란 테두리 = 대기중 신청 · 빨간 인원 = 최소 인원 부족 · 빨간 밑줄 = 주(토~금) 5일 초과</span>
       </div>
     </section>
 
@@ -821,9 +820,7 @@ function renderGrid() {
       const c = dayCount(emps, t, month, d, cells);
       const day = `${+month.slice(5)}/${d}(${DOW[dow(month, d)]})`;
       const tip = t === '런드리24' ? `${day} 오전 ${c.am}명 · 오후 ${c.pm}명 (각 최소 1명)` : `${day} 근무 ${c.total}명 · 최소 ${minGo(month, d, sched.peak)}명`;
-      // 빨강 = 최소보다 적음, 주황 = 딱 최소 (한 명만 더 쉬어도 부족)
-      const edge = t === '런드리24' ? c.am === 1 || c.pm === 1 : c.total === minGo(month, d, sched.peak);
-      return `<td data-col="${d}" class="${isShort(t, month, d, c, sched.peak) ? 'short' : edge ? 'edge' : ''}" title="${tip}${edge && !isShort(t, month, d, c, sched.peak) ? '\n딱 최소 인원 — 한 명만 더 쉬어도 부족' : ''}">${t === '런드리24' ? c.am + '/' + c.pm : c.total}</td>`;
+      return `<td data-col="${d}" class="${isShort(t, month, d, c, sched.peak) ? 'short' : ''}" title="${tip}">${t === '런드리24' ? c.am + '/' + c.pm : c.total}</td>`;
     }).join('') + '<td class="sum"></td></tr>';
   }
   $('#grid').innerHTML = h + '</tbody>';
