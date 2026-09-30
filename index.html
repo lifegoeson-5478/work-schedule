@@ -56,8 +56,12 @@
   .pw-toggle { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); border: none; background: none; color: var(--text3); font: 600 12px inherit; font-family: inherit; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
   .pw-toggle:hover { color: var(--text); background: var(--bg); }
   /* 입력 검증 말풍선 (브라우저 기본 말풍선 대신) */
-  .vtip { position: absolute; z-index: 1000; max-width: 280px; padding: 8px 12px; border-radius: 8px; background: var(--text); color: #fff; font-size: 12px; font-weight: 600; line-height: 1.4; box-shadow: 0 8px 24px rgba(16,24,40,.18); pointer-events: none; animation: fadeUp .18s var(--ease-out); }
+  .vtip { position: absolute; z-index: 1000; white-space: pre; padding: 8px 12px; border-radius: 8px; background: var(--text); color: #fff; font-size: 12px; font-weight: 600; line-height: 1.4; box-shadow: 0 8px 24px rgba(16,24,40,.18); pointer-events: none; animation: fadeUp .18s var(--ease-out); }
   .vtip::before { content: ''; position: absolute; top: -5px; left: 16px; border: 5px solid transparent; border-top: 0; border-bottom-color: var(--text); }
+  /* 호버 툴팁 (title 대신): 요소 가운데 아래, 공간 없으면 위 */
+  .htip { font-weight: 500; animation-duration: .12s; }
+  .htip::before { left: var(--arrow, 50%); margin-left: -5px; }
+  .htip.above::before { top: auto; bottom: -5px; border: 5px solid transparent; border-bottom: 0; border-top-color: var(--text); }
   .input.invalid, .input.invalid:focus { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(224,62,62,.1); }
   .alert { font-size: 13px; border-radius: 8px; padding: 9px 12px; margin-bottom: 14px; line-height: 1.5; border: 1px solid; }
   .alert-error { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
@@ -517,6 +521,28 @@ addEventListener('invalid', ev => {
   el.addEventListener('blur', hide, { once: true });
 }, true);
 
+// ---------- 호버 툴팁: 모든 title을 사이트 스타일 말풍선으로 ----------
+const htip = Object.assign(document.createElement('div'), { className: 'vtip htip', hidden: true });
+document.body.append(htip);
+let tipEl = null;
+addEventListener('mouseover', ev => {
+  const el = ev.target.closest?.('[title], [data-tip]');
+  if (el?.title) { el.dataset.tip = el.title; el.removeAttribute('title'); }  // 브라우저 기본 툴팁 끄기
+  if (el === tipEl) return;
+  tipEl = el;
+  if (!el?.dataset.tip) return htip.hidden = true;
+  htip.textContent = el.dataset.tip;
+  htip.hidden = false;
+  const r = el.getBoundingClientRect(), w = htip.offsetWidth, h = htip.offsetHeight;
+  const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8);  // 화면 밖으로 안 나가게
+  const above = r.bottom + h + 12 > innerHeight;
+  htip.classList.toggle('above', above);
+  htip.style.setProperty('--arrow', r.left + r.width / 2 - left + 'px');
+  htip.style.left = left + scrollX + 'px';
+  htip.style.top = (above ? r.top - h - 8 : r.bottom + 8) + scrollY + 'px';
+});
+addEventListener('scroll', () => { htip.hidden = true; tipEl = null; }, true);
+
 // ---------- 로그인 ----------
 function loginMsg(t, ok) {
   const el = $('#loginMsg');
@@ -681,7 +707,7 @@ function renderGrid() {
       const n = { 휴일: 0, 연차: 0, 공가: 0, 생일: 0 };
       for (const d of days) { const c = cellOf(e, month, d, cells); if (c in n) n[c]++; }
       const quota = e.team === '런드리고' && !rotations[e.id] ? restQuota(e, month) : null, extra = n.연차 + n.공가 + n.생일;
-      h += `<td class="sum${quota !== null && n.휴일 !== quota ? ' bad' : ''}" title="휴일 ${n.휴일} · 연차 ${n.연차} · 공가 ${n.공가} · 생일 ${n.생일}${quota !== null ? ` / 기준 휴일 ${quota}` : ''}">`
+      h += `<td class="sum${quota !== null && n.휴일 !== quota ? ' bad' : ''}" title="${esc(e.name)} ${+month.slice(5)}월 휴무&#10;휴일 ${n.휴일}일${quota !== null ? ` (기준 ${quota}일)` : ''}&#10;연차 ${n.연차}일 · 공가 ${n.공가}일 · 생일 ${n.생일}일">`
         + `${n.휴일}${quota !== null ? `<small>/${quota}</small>` : ''}${extra ? `<em>+${extra}</em>` : ''}</td></tr>`;
     }
     h += `<tr class="count"><th class="name">${t === '런드리24' ? '근무 인원 (오전/오후)' : '근무 인원'}</th>` + days.map(d => {
