@@ -712,7 +712,9 @@ function renderGrid() {
     }
     h += `<tr class="count"><th class="name">${t === '런드리24' ? '근무 인원 (오전/오후)' : '근무 인원'}</th>` + days.map(d => {
       const c = dayCount(emps, t, month, d, cells);
-      return `<td data-col="${d}" class="${isShort(t, month, d, c, sched.peak) ? 'short' : ''}" title="오전 ${c.am} · 오후 ${c.pm}">${t === '런드리24' ? c.am + '/' + c.pm : c.total}</td>`;
+      const day = `${+month.slice(5)}/${d}(${DOW[dow(month, d)]})`;
+      const tip = t === '런드리24' ? `${day} 오전 ${c.am}명 · 오후 ${c.pm}명 (각 최소 1명)` : `${day} 근무 ${c.total}명 · 최소 ${minGo(month, d, sched.peak)}명`;
+      return `<td data-col="${d}" class="${isShort(t, month, d, c, sched.peak) ? 'short' : ''}" title="${tip}">${t === '런드리24' ? c.am + '/' + c.pm : c.total}</td>`;
     }).join('') + '<td class="sum"></td></tr>';
   }
   $('#grid').innerHTML = h + '</tbody>';
