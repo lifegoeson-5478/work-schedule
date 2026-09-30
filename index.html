@@ -84,6 +84,7 @@
   .admin-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
   .atab { padding: 10px 14px; font: 500 14px inherit; font-family: inherit; color: var(--text2); background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; transition: color .15s; }
   .atab:hover { color: var(--text); }
+  .atab:focus-visible, .nav-tab:focus-visible { outline: none; background: var(--bg); border-radius: 6px 6px 0 0; }
   .atab.active { color: var(--text); font-weight: 700; border-bottom-color: var(--text); }
   .btn-danger-ghost { border-color: transparent; background: transparent; color: #b91c1c; }
   .btn-danger-ghost:hover { background: #fee2e2; border-color: #fecaca; color: #b91c1c; }
@@ -175,14 +176,14 @@
   #grid td.pend.over { box-shadow: inset 0 0 0 2px var(--blue), inset 0 -3px 0 var(--danger); }
   #grid td.col-hl { background-image: linear-gradient(rgba(16,24,40,.06), rgba(16,24,40,.06)); }
   #grid thead th.col-hl, #grid thead th.col-hl b { background: var(--text); color: #fff; }
-  #rotGrid { border-collapse: separate; border-spacing: 0; font-size: 13px; }
+  #rotGrid { width: 100%; min-width: 1080px; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 13px; }
   #rotGrid th, #rotGrid td { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); background: var(--paper); padding: 4px; text-align: center; white-space: nowrap; }
   #rotGrid thead th { position: sticky; top: 0; z-index: 2; font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--text3); padding: 10px 4px; border-bottom-color: var(--border); }
-  #rotGrid th.name { position: sticky; left: 0; z-index: 1; text-align: left; padding: 0 14px; min-width: 150px; font-weight: 700; }
+  #rotGrid th.name { position: sticky; left: 0; z-index: 1; text-align: left; padding: 0 14px; width: 160px; overflow: hidden; text-overflow: ellipsis; font-weight: 700; }
   #rotGrid thead th.name { z-index: 3; }
   #rotGrid th.name small { margin-left: 6px; font-size: 11px; font-weight: 500; color: var(--text3); }
   #rotGrid tr.team th { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--text3); height: 34px; }
-  #rotGrid select { width: 78px; padding: 6px 4px; border: 1.5px solid transparent; border-radius: 8px; background: var(--white); font: 600 13px inherit; font-family: inherit; color: var(--text); cursor: pointer; }
+  #rotGrid select { width: 100%; padding: 6px 4px; border: 1.5px solid transparent; border-radius: 8px; background: var(--white); font: 600 13px inherit; font-family: inherit; color: var(--text); cursor: pointer; }
   #rotGrid select:hover { border-color: var(--border2); }
   #rotGrid select.none { background: transparent; color: var(--text3); font-weight: 500; }
   #rotGrid select.changed { border-color: var(--accent); }
