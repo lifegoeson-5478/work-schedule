@@ -110,6 +110,13 @@
   .fg.check label { display: flex; align-items: center; gap: 8px; height: 42px; font-size: 14px; color: var(--text); cursor: pointer; }
   .edit-actions { display: flex; align-items: center; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
   table.list tr.retired td { opacity: .5; }
+  table.list td.grip-cell { width: 28px; padding-right: 0; }
+  .grip { display: inline-block; padding: 4px 6px; margin: -4px 0; border-radius: 6px; color: var(--text3); font-size: 16px; line-height: 1; cursor: grab; touch-action: none; user-select: none; }
+  .grip:hover { color: var(--text); background: var(--bg); }
+  table.list tr.dragging td { background: var(--white); opacity: 1; }
+  table.list tr.dragging { box-shadow: 0 8px 24px rgba(16,24,40,.14); position: relative; z-index: 1; }
+  table.list tr.dragging .grip { cursor: grabbing; color: var(--text); }
+  #empList tbody + tbody tr:first-child td { border-top: 1px solid var(--border); }
   .filter-bar { display: flex; gap: 2px; flex-wrap: wrap; margin-bottom: 14px; }
   .chip { padding: 6px 12px; border-radius: 999px; border: none; background: none; color: var(--text2); font: 500 13px inherit; font-family: inherit; cursor: pointer; }
   .chip:hover { background: var(--bg); color: var(--text); }
@@ -473,7 +480,6 @@
             <div class="fg"><label>파트 <span class="hint">(시트 표기)</span></label><input class="input" name="part" required></div>
             <div class="fg"><label>직책</label><input class="input" name="position" required maxlength="20" placeholder="사원, 팀장 …"></div>
             <div class="fg"><label>출근시간</label><select class="input" name="shift"><option>10:00</option><option>13:00</option><option>자율</option></select></div>
-            <div class="fg"><label>표시 순서</label><input class="input" name="sort" type="number"></div>
             <div class="fg"><label>입사일 <span class="hint">(이전은 퇴직 표시)</span></label><input class="input" name="start_date" type="date"></div>
             <div class="fg"><label>퇴직일 <span class="hint">(다음날부터 퇴직 표시)</span></label><input class="input" name="end_date" type="date"></div>
             <div class="fg check"><label><input type="checkbox" name="is_admin"> 관리자 권한</label></div>
@@ -485,6 +491,7 @@
             <span class="hint">추가한 뒤 본인이 로그인 화면에서 ‘가입하기’로 비밀번호를 만들면 돼요.</span>
           </div>
         </form>
+        <p class="hint" style="margin:0 0 8px">⠿를 잡고 위아래로 끌면 스케줄표·시트 복사 순서가 바뀌어요. (같은 팀 안에서)</p>
         <table class="list" id="empList"></table>
       </div>
     </section>
@@ -1134,25 +1141,56 @@ $('#rotSave').onclick = async () => {
 };
 
 // ---------- 어드민: 담당자 관리 ----------
-const EF = ['name', 'email', 'team', 'part', 'position', 'shift', 'sort', 'start_date', 'end_date'];
+const EF = ['name', 'email', 'team', 'part', 'position', 'shift', 'start_date', 'end_date'];
 const ef = k => $('#empForm').elements[k];
 let editingEmp = null;
 
 function renderEmps() {
   const today = new Date().toLocaleDateString('sv'); // YYYY-MM-DD
-  const rows = TEAMS.flatMap(t => emps.filter(e => e.team === t));
-  $('#empList').innerHTML = '<thead><tr><th>이름</th><th>이메일</th><th>팀</th><th>직책 · 출근</th><th>재직 기간</th><th></th></tr></thead><tbody>' +
-    rows.map(e => `<tr class="${e.end_date && e.end_date < today ? 'retired' : ''}">
+  // 팀마다 tbody 따로: 끌기는 같은 팀 안에서만
+  $('#empList').innerHTML = '<thead><tr><th></th><th>이름</th><th>이메일</th><th>팀</th><th>직책 · 출근</th><th>재직 기간</th><th></th></tr></thead>' +
+    TEAMS.map(t => `<tbody data-team="${t}">` + emps.filter(e => e.team === t).map(e => `<tr data-id="${e.id}" class="${e.end_date && e.end_date < today ? 'retired' : ''}">
+      <td class="grip-cell"><span class="grip" title="끌어서 순서 바꾸기">⠿</span></td>
       <td>${esc(e.name)}${e.is_admin ? ' <span class="pill pill-done">관리자</span>' : ''}${e.must_change_pw ? ' <span class="pill pill-wait" title="첫 로그인 때 비밀번호를 바꿔야 해요">임시 비번</span>' : ''}</td>
       <td class="reason">${esc(e.email)}</td><td>${e.team}</td><td>${esc(e.position)} · ${esc(e.shift)}</td>
       <td class="date">${e.start_date || ''} ~ ${e.end_date || ''}</td>
-      <td class="act"><button class="btn btn-sm" data-edit="${e.id}">수정</button> <button class="btn btn-sm btn-danger-ghost" data-del="${e.id}">삭제</button></td></tr>`).join('') + '</tbody>';
+      <td class="act"><button class="btn btn-sm" data-edit="${e.id}">수정</button> <button class="btn btn-sm btn-danger-ghost" data-del="${e.id}">삭제</button></td></tr>`).join('') + '</tbody>').join('');
 }
+
+// 끌어서 순서 바꾸기 (마우스·터치 공통 pointer 이벤트). 놓으면 그 팀 순서대로 sort 1, 2, 3… 저장
+let drag = null;
+$('#empList').addEventListener('pointerdown', ev => {
+  const grip = ev.target.closest('.grip');
+  if (!grip) return;
+  ev.preventDefault();
+  drag = { tr: grip.closest('tr'), body: grip.closest('tbody') };
+  drag.tr.classList.add('dragging');
+  try { grip.setPointerCapture(ev.pointerId); } catch {}   // 목록 밖으로 끌어도 이벤트 받기
+});
+$('#empList').addEventListener('pointermove', ev => {
+  if (!drag) return;
+  const rows = [...drag.body.rows].filter(r => r !== drag.tr);
+  const next = rows.find(r => ev.clientY < r.getBoundingClientRect().top + r.offsetHeight / 2);
+  if (next ? drag.tr.nextElementSibling !== next : drag.body.lastElementChild !== drag.tr) drag.body.insertBefore(drag.tr, next || null);
+});
+const endDrag = async () => {
+  if (!drag) return;
+  const { tr, body } = drag;
+  drag = null;
+  tr.classList.remove('dragging');
+  const changes = [...body.rows].map((r, i) => [+r.dataset.id, i + 1]).filter(([id, sort]) => emps.find(e => e.id === id)?.sort !== sort);
+  if (!changes.length) return;
+  const res = await Promise.all(changes.map(([id, sort]) => sb.from('ws_employees').update({ sort }).eq('id', id)));
+  const err = res.find(r => r.error)?.error;
+  if (err) alert('순서 저장 실패: ' + err.message);
+  reloadEmps();   // 실패해도 DB 순서로 다시 그림
+};
+$('#empList').addEventListener('pointerup', endDrag);
+$('#empList').addEventListener('pointercancel', endDrag);
 
 function fillEmp(e) {
   editingEmp = e;
-  const d = e || { team: '런드리고', part: '런드리고 / 고객문의', position: '사원', shift: '10:00',
-    sort: Math.max(0, ...emps.map(x => x.sort || 0)) + 1 };
+  const d = e || { team: '런드리고', part: '런드리고 / 고객문의', position: '사원', shift: '10:00' };
   for (const k of EF) ef(k).value = d[k] ?? '';
   ef('is_admin').checked = !!d.is_admin;
   ef('must_change_pw').checked = e ? !!e.must_change_pw : true;   // 새 담당자는 기본으로 켬
@@ -1177,7 +1215,9 @@ $('#empForm').onsubmit = async ev => {
   const row = {};
   for (const k of EF) { const v = ef(k).value.trim(); row[k] = v === '' ? null : v; }
   row.email = row.email.toLowerCase();
-  row.sort = +row.sort || 0;
+  // 새 담당자 · 팀을 옮긴 담당자는 그 팀 맨 아래로 (순서는 목록에서 끌어서 바꿈)
+  if (!editingEmp || editingEmp.team !== row.team)
+    row.sort = Math.max(0, ...emps.filter(x => x.team === row.team && x.id !== editingEmp?.id).map(x => x.sort || 0)) + 1;
   row.is_admin = ef('is_admin').checked;
   row.must_change_pw = ef('must_change_pw').checked;
   if (row.start_date && row.end_date && row.end_date < row.start_date) return alert('퇴직일이 입사일보다 빨라요.');
