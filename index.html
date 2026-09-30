@@ -504,14 +504,14 @@
         </svg>
         오류/문의 보내기
       </a>
-      <span class="site-footer-version">v2026.09.30.4</span>
+      <span class="site-footer-version">v2026.09.30.5</span>
     </div>
   </footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <!-- ?v= 는 배포마다 올리기 (GitHub Pages가 10분 캐시해서 예전 logic.js와 섞이는 것 방지). 푸터 버전과 같이 -->
-<script src="logic.js?v=2026.09.30.4"></script>
+<script src="logic.js?v=2026.09.30.5"></script>
 <script>
 // 매장 정보 시스템(laundry24-store)과 같은 Supabase 프로젝트 (anon 키는 공개용. 권한은 DB 정책이 막아요)
 const SUPABASE_URL = 'https://ebiepxqkqeyyxewnddov.supabase.co';
@@ -809,9 +809,11 @@ function renderGrid() {
       // 휴무 수량: 휴일 수 (자동 배치 대상 런드리고는 기준 대비) + 연차·공가·생일
       const n = { 휴일: 0, 연차: 0, 공가: 0, 생일: 0 };
       for (const d of days) { const c = cellOf(e, month, d, cells); if (c in n) n[c]++; }
-      const quota = e.team === '런드리고' && !rotations[e.id] ? restQuota(e, month) : null, extra = n.연차 + n.공가 + n.생일;
-      h += `<td class="sum${quota !== null && n.휴일 !== quota ? ' bad' : ''}" title="${esc(e.name)} ${+month.slice(5)}월 휴무&#10;휴일 ${n.휴일}일${quota !== null ? ` (기준 ${quota}일)` : ''}&#10;연차 ${n.연차}일 · 공가 ${n.공가}일 · 생일 ${n.생일}일">`
-        + `${n.휴일}${quota !== null ? `<small>/${quota}</small>` : ''}${extra ? `<em>+${extra}</em>` : ''}</td></tr>`;
+      // 기준 = 기본 휴무. 자동 배치(런드리고 로테이션 없음)는 딱 맞아야, 로테이션은 넘치면 문제(모자라면 필요휴무로 채움)
+      const quota = restQuota(e, month), extra = n.연차 + n.공가 + n.생일;
+      const bad = rotations[e.id] ? n.휴일 > quota : e.team === '런드리고' && n.휴일 !== quota;
+      h += `<td class="sum${bad ? ' bad' : ''}" title="${esc(e.name)} ${+month.slice(5)}월 휴무&#10;휴일 ${n.휴일}일 (기준 ${quota}일${rotations[e.id] ? ` · 로테이션 ${esc(rotations[e.id])}` : ''})&#10;연차 ${n.연차}일 · 공가 ${n.공가}일 · 생일 ${n.생일}일">`
+        + `${n.휴일}<small>/${quota}</small>${extra ? `<em>+${extra}</em>` : ''}</td></tr>`;
     }
     h += `<tr class="count"><th class="name">${t === '런드리24' ? '근무 인원 (오전/오후)' : '근무 인원'}</th>` + days.map(d => {
       const c = dayCount(emps, t, month, d, cells);

@@ -137,6 +137,21 @@ function autoSchedule(emps, month, approved, rotations, peak, adj = {}) {
     }
   }
 
+  // 로테이션 휴일이 기본 휴무(주말+공휴일)보다 많으면 넘치는 만큼 근무로 되돌림.
+  // 주 5일(지난달 월말 포함)을 안 넘는 날 중 인원이 가장 모자란 날부터. 승인된 신청은 안 건드림
+  const fixed = new Set(approved.map(r => r.employee_id + '-' + +r.date.slice(8)));
+  for (const e of emps.filter(x => rotations[x.id])) {
+    let extra = Object.values(cells[e.id]).filter(c => c === '휴일').length - restQuota(e, month);
+    while (extra > 0) {
+      const cand = [];
+      for (let d = 1; d <= n; d++)
+        if (cells[e.id][d] === '휴일' && !fixed.has(e.id + '-' + d) && weekWork(e, weekOfDay(d), month, cells, adj) < 5) cand.push(d);
+      if (!cand.length) break;
+      delete cells[e.id][cand.reduce((a, b) => surplus(e, b) < surplus(e, a) ? b : a)];
+      extra--;
+    }
+  }
+
   const need = new Map(flex.map(e => {
     let used = 0;
     for (let d = 1; d <= n; d++) if (cells[e.id][d] === '휴일') used++;
@@ -166,7 +181,6 @@ function autoSchedule(emps, month, approved, rotations, peak, adj = {}) {
     }
   }
   // 그래도 부족한 날은 그날 쉬는 사람의 휴일을 여유 있는 날로 옮김 (신청한 날·로테이션은 안 건드림)
-  const fixed = new Set(approved.map(r => r.employee_id + '-' + +r.date.slice(8)));
   for (let d = 1; d <= n; d++) {
     for (let moved = true; moved && head(d) < minGo(month, d, peak);) {
       moved = false;

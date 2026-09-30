@@ -62,6 +62,23 @@ for (let run = 0; run < 50; run++) {
 }
 assert.deepEqual(L.rotationGaps(emps, '런드리24', M, rot), []);
 assert.deepEqual(L.rotationGaps(emps, '런드리24', M, { 10: '금·토', 11: '금·토', 12: '수·목', 13: '수·목' }), ['수 오후', '목 오후', '금 오전', '토 오전']);
+// 로테이션 휴무가 기본 휴무보다 많으면 보정: 12월 수·목 = 10일 > 기본 9일(주말 8 + 성탄절)
+{
+  const p = emps.find(e => e.id === 12);   // 런드리24 오후
+  assert.equal(L.restQuota(p, '2026-12'), 9);
+  assert.equal(L.rotationOffs(p, '2026-12', { 12: '수·목' }), 10);
+  for (let run = 0; run < 20; run++) {
+    const nov = L.autoSchedule(emps, '2026-11', [], { ...rot, 12: '금·토' }, false);
+    const dec = L.autoSchedule(emps, '2026-12', [], { ...rot, 12: '수·목' }, false, { prev: nov });
+    assert.equal(Object.values(dec[12]).filter(c => c === '휴일').length, 9, '12월 휴일 = 기본 휴무');
+    assert.deepEqual(L.weekIssues(emps, '2026-12', dec, { prev: nov }), [], '보정 후에도 주 5일');
+  }
+  // 승인된 필요휴무는 되돌리지 않음
+  const ap = [{ employee_id: 12, date: '2026-12-02', kind: '필요휴무' }];
+  const dec = L.autoSchedule(emps, '2026-12', ap, { ...rot, 12: '수·목' }, false);
+  assert.equal(dec[12][2], '휴일');
+}
+
 // 연차 위험한 날
 {
   const go1 = emps[1], am = emps[9], pm = emps[11];
