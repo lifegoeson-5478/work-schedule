@@ -41,8 +41,15 @@ function restQuota(e, month) {
   for (let d = 1; d <= daysIn(month); d++) if (active(e, ymd(month, d)) && isRest(month, d)) q++;
   return q;
 }
-// 필요휴무 신청 한도 = 그달 공휴일 수 (팀·로테이션 무관)
-const offLimit = month => holidayCount(month);
+// 재직 기간 안에서 로테이션 요일에 해당하는 날 수
+function rotationOffs(e, month, rotations = {}) {
+  const off = rotations[e.id] || '';
+  let n = 0;
+  if (off) for (let d = 1; d <= daysIn(month); d++) if (active(e, ymd(month, d)) && off.includes(DOW[dow(month, d)])) n++;
+  return n;
+}
+// 필요휴무 신청 한도 = 기본 휴무(주말+공휴일) − 로테이션 휴무일. 로테이션이 없으면 기본 휴무 전부
+const offLimit = (e, month, rotations = {}) => Math.max(0, restQuota(e, month) - rotationOffs(e, month, rotations));
 // 해당 월 신청은 전달 20일까지
 const canRequest = (month, now = new Date()) => { const [y, m] = ym(month); return now < new Date(y, m - 2, 21); };
 
@@ -201,5 +208,5 @@ function toTSV(emps, month, cells) {
 
 if (typeof module !== 'undefined') module.exports = {
   TEAMS, CODES, DOW, HOLIDAYS, fmtMonth, addMonth, daysIn, ymd, dow, isRest, holidayCount, active, cellOf,
-  restQuota, offLimit, canRequest, dayCount, isShort, weeksOf, weekWork, weekIssues, autoSchedule, rotationGaps, toTSV,
+  restQuota, rotationOffs, offLimit, canRequest, dayCount, isShort, weeksOf, weekWork, weekIssues, autoSchedule, rotationGaps, toTSV,
 };

@@ -443,7 +443,7 @@
           <div class="tools"><button class="btn btn-primary" id="rotSave">저장</button></div>
         </div>
         <div class="grid-wrap"><table id="rotGrid"></table></div>
-        <p class="hint" style="margin-top:12px;line-height:1.7">매달 고정으로 쉬는 요일이에요. 로테이션이 있는 사람은 그 요일에 쉬고, 공휴일 수만큼 필요휴무를 쓸 수 있어요.<br>
+        <p class="hint" style="margin-top:12px;line-height:1.7">매달 고정으로 쉬는 요일이에요. 로테이션이 있는 사람은 그 요일에 쉬고, 기본 휴무(주말·공휴일)보다 모자란 만큼 필요휴무를 쓸 수 있어요.<br>
           런드리고에서 비워둔 사람은 자동 배치가 주말·공휴일 수만큼 휴일을 나눠 넣어요. ‘점검’ 줄은 로테이션만 봤을 때 최소 인원이 부족한 요일이에요.</p>
       </div>
       <div id="pReqs">
@@ -710,8 +710,7 @@ function renderHead() {
   const days = Array.from({ length: daysIn(month) }, (_, i) => i + 1);
   const hols = Object.entries(HOLIDAYS).filter(([k]) => k.startsWith(month));
   const monthInfo = `주말 <b>${days.filter(d => [0, 6].includes(dow(month, d))).length}일</b>`
-    // 공휴일 수 = 필요휴무 한도 (대체공휴일은 원래 공휴일과 같은 날로 보고 따로 표기)
-    + ` · 공휴일 <b>${offLimit(month)}일</b>${hols.length ? ` (${hols.map(([k, v]) => `${+k.slice(8)}일 ${v === '대체' ? '대체공휴일' : v}`).join(', ')})` : ''}`
+    + ` · 공휴일 <b>${hols.length}일</b>${hols.length ? ` (${hols.map(([k, v]) => `${+k.slice(8)}일 ${v === '대체' ? '대체공휴일' : v}`).join(', ')})` : ''}`
     + ` · 기본 휴무 <b>${days.filter(d => isRest(month, d)).length}일</b>`;
   $('#pageDesc').innerHTML = tab === 'mine' ? monthInfo
     : tab === 'sched' ? monthInfo + '<br>공가·연차·필요휴무는 전달 <b>20일</b>까지 신청, 최종 스케줄은 <b>25일</b>에 확정돼요.'
@@ -885,7 +884,7 @@ function renderMine() {
     ? `<span>근무 <b>${cnt.근무}</b>일</span><span>휴일 <b>${cnt.휴일}</b>일</span>`
       + ['연차', '공가', '생일'].filter(k => cnt[k]).map(k => `<span>${k} <b>${cnt[k]}</b>일</span>`).join('')
     : '<span class="pill pill-wait">확정 전</span><span>최종 스케줄은 25일에 나와요. 내 신청만 표시돼요.</span>')
-    + `<span class="cal-quota">필요휴무 <b>${used}/${offLimit(month)}</b></span>`;
+    + `<span class="cal-quota">필요휴무 <b>${used}/${offLimit(me, month, rotations)}</b></span>`;
   $('#mineHint').textContent = open ? '날짜를 누르면 그 날짜로 휴무 신청을 할 수 있어요.' : '';
 }
 $('#cal').onclick = ev => {
@@ -899,12 +898,13 @@ $('#cal').onclick = ev => {
 // ---------- 휴무 신청 ----------
 function renderReq() {
   const open = canRequest(month), mine = reqs.filter(r => r.employee_id === me.id);
-  const used = mine.filter(r => r.kind === '필요휴무' && r.status !== '반려').length, lim = offLimit(month);
+  const used = mine.filter(r => r.kind === '필요휴무' && r.status !== '반려').length, lim = offLimit(me, month, rotations);
+  const rest = restQuota(me, month), rot = rotationOffs(me, month, rotations);
   $('#reqForm').hidden = !open;
   $('#reqForm').date.min = month + '-01';
   $('#reqForm').date.max = ymd(month, daysIn(month));
   $('#quota').innerHTML = `필요휴무 <b>${used} / ${lim}</b>일 <span class="hint">` +
-    '이번 달 공휴일 수만큼 쓸 수 있어요</span>';
+    (rot ? `기본 휴무 ${rest}일 − 로테이션 휴무 ${rot}일(${esc(rotations[me.id])})` : `기본 휴무(주말·공휴일) ${rest}일`) + '</span>';
   $('#myReqs').innerHTML = mine.length
     ? '<thead><tr><th>날짜</th><th>종류</th><th>사유</th><th>상태</th><th></th></tr></thead><tbody>' + mine.map(r =>
       `<tr><td class="date">${dayLabel(r.date)}</td><td>${r.kind}</td><td class="reason">${esc(r.reason)}</td>
@@ -916,7 +916,7 @@ $('#reqForm').onsubmit = async ev => {
   ev.preventDefault();
   const f = ev.target, kind = f.kind.value;
   const used = reqs.filter(r => r.employee_id === me.id && r.kind === '필요휴무' && r.status !== '반려').length;
-  const lim = offLimit(month);
+  const lim = offLimit(me, month, rotations);
   if (kind === '필요휴무' && used >= lim) return alert(`필요휴무는 이번 달 ${lim}일까지 신청할 수 있어요.`);
   const { error } = await sb.from('ws_requests').insert({ employee_id: me.id, date: f.date.value, kind, reason: f.reason.value.trim() });
   if (error) return alert(error.code === '23505' ? '그 날짜엔 이미 신청이 있어요.' : '신청 실패: ' + error.message);
