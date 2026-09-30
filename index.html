@@ -734,7 +734,7 @@ document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => showTab(b
 $('#home').onclick = ev => { ev.preventDefault(); showTab(homeTab()); };
 
 function renderHead() {
-  $('#prev').disabled = month <= START_MONTH;
+  $('#prev').style.visibility = month <= START_MONTH ? 'hidden' : '';   // 자리는 유지해서 다음 달 버튼이 안 밀리게
   if (!sched) return;
   const deadline = `${+addMonth(month, -1).slice(5)}월 20일`;
   $('#monthLabel').textContent = tab === 'admin' ? '어드민' : label(month) + { mine: ' 내 스케줄', sched: ' 스케줄', req: ' 휴무 신청' }[tab];
@@ -1082,7 +1082,7 @@ async function loadRot() {
 }
 function renderRot() {
   const months = rotMonths(), n = Object.keys(rotEdit).length;
-  $('#rotPrev').disabled = rotStart <= START_MONTH;
+  $('#rotPrev').style.visibility = rotStart <= START_MONTH ? 'hidden' : '';
   $('#rotRange').textContent = `${months[0].replace('-', '.')} — ${months[11].replace('-', '.')}`;
   $('#rotStatus').innerHTML = n ? `<span class="pill pill-dirty">저장 안 됨 ${n}칸</span>` : '';
   let h = '<thead><tr><th class="name">NAME</th>' + months.map(m => `<th>${m.slice(2).replace('-', '.')}</th>`).join('') + '</tr></thead><tbody>';
