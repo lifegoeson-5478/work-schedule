@@ -166,6 +166,11 @@
   #grid td.official { background: var(--accent-light); color: var(--accent-text); }
   #grid td.gone { background: var(--bg); color: var(--text3); font-weight: 500; }
   #grid td.pend { box-shadow: inset 0 0 0 2px var(--blue); }
+  #grid th.sum { width: 64px; }
+  #grid td.sum { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--text); border-left: 1px solid var(--border); }
+  #grid td.sum small { font-size: 11px; font-weight: 500; color: var(--text3); }
+  #grid td.sum em { font-style: normal; font-size: 11px; color: var(--blue); margin-left: 3px; }
+  #grid td.sum.bad, #grid td.sum.bad small { color: #B91C1C; }
   #grid td.over { box-shadow: inset 0 -3px 0 var(--danger); }
   #grid td.pend.over { box-shadow: inset 0 0 0 2px var(--blue), inset 0 -3px 0 var(--danger); }
   #grid td.col-hl { background-image: linear-gradient(rgba(16,24,40,.06), rgba(16,24,40,.06)); }
@@ -470,7 +475,12 @@ function renderHead() {
   if (!sched) return;
   const deadline = `${+addMonth(month, -1).slice(5)}월 20일`;
   $('#monthLabel').textContent = tab === 'admin' ? '어드민' : label(month) + (tab === 'sched' ? ' 스케줄' : ' 휴무 신청');
-  $('#pageDesc').innerHTML = tab === 'sched' ? '공가·연차·필요휴무는 전달 <b>20일</b>까지 신청, 최종 스케줄은 <b>25일</b>에 확정돼요.'
+  const days = Array.from({ length: daysIn(month) }, (_, i) => i + 1);
+  const hols = Object.entries(HOLIDAYS).filter(([k]) => k.startsWith(month));
+  const monthInfo = `주말 <b>${days.filter(d => [0, 6].includes(dow(month, d))).length}일</b>`
+    + ` · 공휴일 <b>${hols.length}일</b>${hols.length ? ` (${hols.map(([k, v]) => `${+k.slice(8)}일 ${v === '대체' ? '대체공휴일' : v}`).join(', ')})` : ''}`
+    + ` · 기본 휴무 <b>${days.filter(d => isRest(month, d)).length}일</b>`;
+  $('#pageDesc').innerHTML = tab === 'sched' ? monthInfo + '<br>공가·연차·필요휴무는 전달 <b>20일</b>까지 신청, 최종 스케줄은 <b>25일</b>에 확정돼요.'
     : tab === 'req' ? (canRequest(month) ? `이번 신청 마감은 <b>${deadline}</b>이에요.` : `${deadline}에 신청이 마감됐어요.`)
     : `대기 중인 신청 <b>${adminReqs.filter(r => r.status === '대기').length}건</b> · 승인하면 해당 달 스케줄에 바로 들어가요.`;
 }
@@ -524,11 +534,11 @@ function renderGrid() {
   for (const r of reqs) if (r.status === '대기') pend[r.employee_id + '-' + +r.date.slice(8)] = r.kind;
 
   let h = '<thead><tr><th class="name">NAME</th>' + days.map(d =>
-    `<th data-col="${d}" class="${isRest(month, d) ? 'rest' : ''}" title="${HOLIDAYS[ymd(month, d)] || ''}"><b>${d}</b>${DOW[dow(month, d)]}</th>`).join('') + '</tr></thead><tbody>';
+    `<th data-col="${d}" class="${isRest(month, d) ? 'rest' : ''}" title="${HOLIDAYS[ymd(month, d)] || ''}"><b>${d}</b>${DOW[dow(month, d)]}</th>`).join('') + '<th class="sum">휴무</th></tr></thead><tbody>';
   for (const t of TEAMS) {
     const list = emps.filter(e => e.team === t);
     if (!list.length) continue;
-    h += `<tr class="team${t === '런드리24' ? ' l24' : ''}"><th class="name">${t}</th><td colspan="${days.length}"></td></tr>`;
+    h += `<tr class="team${t === '런드리24' ? ' l24' : ''}"><th class="name">${t}</th><td colspan="${days.length + 1}"></td></tr>`;
     for (const e of list) {
       h += `<tr class="${e.id === me.id ? 'mine' : ''}"><th class="name">${esc(e.name)}<small>${esc(e.position)} · ${esc(e.shift)}</small></th>`;
       for (const d of days) {
@@ -537,12 +547,17 @@ function renderGrid() {
         const tip = [p && `신청: ${p}`, o && `이 주(토~금) ${o}일 근무`].filter(Boolean).join(' · ');
         h += `<td data-e="${e.id}" data-d="${d}" data-col="${d}"${cls ? ` class="${cls}"` : ''}${tip ? ` title="${tip}"` : ''}>${c}</td>`;
       }
-      h += '</tr>';
+      // 휴무 수량: 휴일 수 (자동 배치 대상 런드리고는 기준 대비) + 연차·공가·생일
+      const n = { 휴일: 0, 연차: 0, 공가: 0, 생일: 0 };
+      for (const d of days) { const c = cellOf(e, month, d, cells); if (c in n) n[c]++; }
+      const quota = e.team === '런드리고' && !rotations[e.id] ? restQuota(e, month) : null, extra = n.연차 + n.공가 + n.생일;
+      h += `<td class="sum${quota !== null && n.휴일 !== quota ? ' bad' : ''}" title="휴일 ${n.휴일} · 연차 ${n.연차} · 공가 ${n.공가} · 생일 ${n.생일}${quota !== null ? ` / 기준 휴일 ${quota}` : ''}">`
+        + `${n.휴일}${quota !== null ? `<small>/${quota}</small>` : ''}${extra ? `<em>+${extra}</em>` : ''}</td></tr>`;
     }
     h += `<tr class="count"><th class="name">${t === '런드리24' ? '근무 인원 (오전/오후)' : '근무 인원'}</th>` + days.map(d => {
       const c = dayCount(emps, t, month, d, cells);
       return `<td data-col="${d}" class="${isShort(t, month, d, c, sched.peak) ? 'short' : ''}" title="오전 ${c.am} · 오후 ${c.pm}">${t === '런드리24' ? c.am + '/' + c.pm : c.total}</td>`;
-    }).join('') + '</tr>';
+    }).join('') + '<td class="sum"></td></tr>';
   }
   $('#grid').innerHTML = h + '</tbody>';
   setCol(hlCol);
