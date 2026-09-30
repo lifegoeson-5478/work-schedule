@@ -71,13 +71,18 @@ assert.equal(L.weeksOf('2026-08')[0][0].d, 1);   // 8/1이 토요일이면 그�
     const oct = L.autoSchedule(emps, '2026-10', [], octRot, false);
     const nov = L.autoSchedule(emps, '2026-11', [], novRot, false, { prev: oct });
     assert.deepEqual(L.weekIssues(emps, '2026-11', nov, { prev: oct }), [], '11월 주 5일 초과');
-    assert.deepEqual(L.weekIssues(emps, '2026-10', oct, { next: nov }), [], '10월 주 5일 초과');
+    assert.deepEqual(L.weekIssues(emps, '2026-10', oct), [], '10월 주 5일 초과');
     assert.equal(nov[10][6], '휴일');
     assert.ok(emps.filter(r24).every(e => L.weekWork(e, L.weeksOf('2026-11')[0], '2026-11', nov, { prev: oct }) <= 5));
     // 런드리고 자동 배치 인원은 주 5일 보정 후에도 휴일 수 = 주말·공휴일 수
     for (const e of emps.filter(e => e.team === '런드리고' && !e.end_date && !e.start_date))
       assert.equal(Object.values(nov[e.id]).filter(c => c === '휴일').length, L.restQuota(e, '2026-11'));
   }
+  // 10/31(토)만 10월인 주: 11월이 아직 비어 있어도(전부 근무로 보여도) 10월에선 초과 아님
+  const oct = { 2: {} };   // 상담사2 10월 휴일 없음 → 10/31 근무
+  assert.ok(!L.weekIssues([emps[1]], '2026-10', oct).some(w => w.days.includes(31)), '10/31 주는 11월에서 판단');
+  // 11월에서 합산: 10/31 근무 + 11/1~6 근무 → 초과
+  assert.ok(L.weekIssues([emps[1]], '2026-11', { 2: {} }, { prev: oct }).some(w => w.days.includes(1)));
   // 앞달 칸이 없으면 모르는 날은 빼고 셈 → 이번 달 쪽만으로 5일 넘으면 문제
   const allWork = { 2: {} };
   // 11/1~6(6일), 7~13, 14~20, 21~27 → 4주. 11/28~30은 3일뿐이라 문제 없음

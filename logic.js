@@ -68,12 +68,13 @@ function weeksOf(month) {
     weeks.push(Array.from({ length: 7 }, (_, i) => { const t = new Date(y, m - 1, s + i); return { m: fmtMonth(t), d: t.getDate() }; }));
   return weeks;
 }
-// 그 주에 확인되는 근무일 수. adj = { prev, next }: 앞뒤 달 cells (없으면 그 날짜는 모르는 날로 빼고 셈)
+// 그 주에 확인되는 근무일 수. adj = { prev }: 지난달 cells (없으면 그 날짜는 빼고 셈)
+// 다음 달로 넘어가는 주는 다음 달 날짜를 안 봄 → 다음 달 스케줄 짤 때 지난달과 합산해서 판단
 function weekWork(e, week, month, cells, adj = {}) {
   const prev = addMonth(month, -1);
   let n = 0;
   for (const { m, d } of week) {
-    const c = m === month ? cells : m === prev ? adj.prev : adj.next;
+    const c = m === month ? cells : m === prev ? adj.prev : null;
     if (c && worksOn(cellOf(e, m, d, c))) n++;
   }
   return n;
@@ -89,7 +90,7 @@ function weekIssues(emps, month, cells, adj = {}) {
 }
 
 // 승인된 신청 → 로테이션(팀 무관) → 주 5일 보정 → 로테이션 없는 런드리고는 남은 휴일을 인원 여유가 큰 날부터 배정
-// adj = { prev, next }: 앞뒤 달 cells (월 경계 주 5일 계산용)
+// adj = { prev }: 지난달 cells (월초 주 5일 계산용)
 function autoSchedule(emps, month, approved, rotations, peak, adj = {}) {
   const n = daysIn(month), cells = {};
   const on = (e, d) => active(e, ymd(month, d));

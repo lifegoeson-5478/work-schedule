@@ -495,14 +495,14 @@ $('#next').onclick = () => go(1);
 addEventListener('beforeunload', e => { if (dirty) e.preventDefault(); });
 
 async function load() {
-  const prev = addMonth(month, -1), next = addMonth(month, 1);
+  const prev = addMonth(month, -1);
   const [s, ro] = await Promise.all([
-    sb.from('ws_schedules').select('*').in('month', [prev, month, next]),  // 앞뒤 달은 월 경계 주 5일 계산용
+    sb.from('ws_schedules').select('*').in('month', [prev, month]),  // 지난달은 월초 주 5일 계산용
     sb.from('ws_rotations').select('*').eq('month', month),
   ]);
   const byMonth = Object.fromEntries((s.data || []).map(r => [r.month, r]));
   sched = byMonth[month] || { month, cells: {}, peak: false, published: false };
-  adj = { prev: byMonth[prev]?.cells || null, next: byMonth[next]?.cells || null };
+  adj = { prev: byMonth[prev]?.cells || null };
   rotations = Object.fromEntries((ro.data || []).map(r => [r.employee_id, r.days]));
   dirty = false;
   await loadReqs();
