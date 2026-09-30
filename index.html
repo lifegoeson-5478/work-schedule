@@ -72,7 +72,7 @@
   .auth-foot { font-size: 12px; color: var(--text3); margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border); line-height: 1.7; }
 
   /* 로고 (워드마크): 큰 제목과 같은 굵기 + 초록 마침표 */
-  .brand { font-size: 19px; font-weight: 800; letter-spacing: -.05em; color: var(--text); white-space: nowrap; }
+  .brand { font-size: 19px; font-weight: 800; letter-spacing: -.05em; color: var(--text); white-space: nowrap; text-decoration: none; }
   .brand span { color: var(--accent); }
   .auth-brand .brand { font-size: 22px; }
 
@@ -262,7 +262,7 @@
 <div id="app" hidden>
   <header>
     <div class="nav-inner">
-      <span class="brand">근무 스케줄<span>.</span></span>
+      <a href="#" class="brand" id="home">근무 스케줄<span>.</span></a>
       <div class="nav-tabs">
         <button class="nav-tab" data-tab="sched">스케줄</button>
         <button class="nav-tab" data-tab="req">휴무 신청</button>
@@ -469,8 +469,11 @@ function showTab(t) {
   $('.month-nav').hidden = t === 'admin';
   if (t === 'admin') loadAdmin();
   renderHead();
+  // 제목은 탭마다 같은 요소라 애니메이션을 다시 걸어줌
+  for (const el of [$('.page-title'), $('.page-title .hero-dot')]) { el.style.animation = 'none'; el.offsetWidth; el.style.animation = ''; }
 }
 document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+$('#home').onclick = ev => { ev.preventDefault(); showTab('sched'); };
 
 function renderHead() {
   if (!sched) return;
