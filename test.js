@@ -54,8 +54,8 @@ for (let run = 0; run < 50; run++) {
   const cells = L.autoSchedule(emps, M, [], { ...rot, 2: '토·일' }, false);
   const offs = Object.keys(cells[2]).map(Number);
   assert.ok(offs.every(d => [0, 6].includes(L.dow(M, d))) && offs.length === 10, 'g2 로테이션');
-  assert.equal(L.offLimit(emps[1], M, { 2: '토·일' }), 1);   // 공휴일 수
-  assert.equal(L.offLimit(emps[1], M, {}), 11);              // 주말+공휴일 수
+  assert.equal(L.offLimit(M), 1);             // 필요휴무 한도 = 공휴일 수 (8월: 광복절)
+  assert.equal(L.offLimit('2026-10'), 2);     // 개천절·한글날 (10/5 대체공휴일은 개천절과 같은 공휴일이라 제외)
 }
 assert.deepEqual(L.rotationGaps(emps, '런드리24', M, rot), []);
 assert.deepEqual(L.rotationGaps(emps, '런드리24', M, { 10: '금·토', 11: '금·토', 12: '수·목', 13: '수·목' }), ['수 오후', '목 오후', '금 오전', '토 오전']);

@@ -230,15 +230,62 @@
   .site-footer-version { font-family: var(--mono); font-size: 11px; color: var(--text3); }
   @media (max-width: 720px) { .site-footer { padding: 0 16px; } }
 
+  /* 내 스케줄 달력 */
+  #mine { max-width: 1000px; }
+  .cal-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; font-size: 13px; color: var(--text2); padding: 14px 4px; border-top: 1px solid var(--text); border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+  .cal-summary b { font-size: 18px; font-weight: 800; letter-spacing: -.02em; color: var(--text); font-variant-numeric: tabular-nums; margin: 0 2px; }
+  .cal-summary .cal-quota { margin-left: auto; }
+  .cal-summary .cal-quota b { color: var(--accent-text); }
+  .cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+  .cal-h { font-family: var(--mono); font-size: 11px; color: var(--text3); text-align: center; padding: 2px 0 4px; }
+  .cal-h.sun { color: var(--danger); }
+  .cal-cell { min-height: 100px; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 8px 9px; background: var(--white); border: 1px solid var(--line); border-radius: 10px; font: inherit; color: var(--text); text-align: left; cursor: default; }
+  .cal-cell.empty { background: none; border: none; }
+  .cal-cell.can { cursor: pointer; transition: border-color .15s; }
+  .cal-cell.can:hover { border-color: var(--text3); }
+  .cal-cell.today { box-shadow: inset 0 0 0 2px var(--text); }
+  .cal-cell.pend { border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); }
+  .cal-cell.gone { background: var(--bg); color: var(--text3); }
+  .cal-d { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .cal-cell.rest .cal-d, .cal-hol { color: var(--danger); }
+  .cal-hol { max-width: 100%; font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cal-req { max-width: 100%; font-size: 11px; font-weight: 600; color: var(--blue); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cal-code { margin-top: auto; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .cal-cell.off .cal-code { background: var(--orange-light); color: var(--orange); }
+  .cal-cell.leave .cal-code { background: var(--blue-light); color: var(--blue); }
+  .cal-cell.bday .cal-code { background: var(--purple-light); color: var(--purple); }
+  .cal-cell.official .cal-code { background: var(--accent-light); color: var(--accent-text); }
+  .cal-cell.gone .cal-code { background: none; color: var(--text3); padding: 0; }
+
   @media (max-width: 720px) {
-    .nav-inner { padding: 0 16px; }
-    .nav-inner .brand { margin-right: 12px; }
-    .nav-tab { padding: 0 10px; }
-    .nav-tab::after { left: 10px; right: 10px; }
-    #who { display: none; }
-    .pg-inner { padding: 20px 16px 48px; }
-    .page-title, .auth-heading { font-size: 30px; }
+    .nav-inner { padding: 0 12px; height: 54px; }
+    .nav-inner .brand { margin-right: 10px; font-size: 17px; }
+    .nav-tabs, .nav-tab { height: 54px; }
+    .nav-tab { padding: 0 9px; font-size: 13px; }
+    .nav-tab::after { left: 9px; right: 9px; }
+    .nav-right { gap: 2px; }
+    #who, .btn-admin .lbl { display: none; }
+    .btn-admin { padding: 7px; }
+    #logout { padding: 6px 8px; font-size: 12px; }
+    .pg-inner { padding: 18px 16px 40px; }
+    .page-head { margin: 16px 0 18px; gap: 14px; }
+    .page-title, .auth-heading { font-size: 28px; }
+    .page-desc { font-size: 13px; margin-top: 8px; }
+    .month-nav { width: 100%; }
+    .month-nav .btn { flex: 1; }
+    .toolbar .tools { margin-left: 0; }
     .legend .note { margin-left: 0; }
+    .req-form .input, .req-form .btn { width: 100% !important; }
+    section table.list { display: block; overflow-x: auto; white-space: nowrap; }
+    .cal { gap: 3px; }
+    .cal-cell { min-height: 66px; padding: 5px 4px; border-radius: 8px; gap: 2px; }
+    .cal-d { font-size: 12px; }
+    .cal-hol, .cal-req { font-size: 9px; }
+    .cal-req .k { display: none; }
+    .cal-code { padding: 1px 5px; font-size: 11px; }
+    .cal-summary { gap: 4px 12px; }
+    .cal-summary b { font-size: 16px; }
+    .cal-summary .cal-quota { margin-left: 0; }
   }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
@@ -276,6 +323,7 @@
     <div class="nav-inner">
       <a href="#" class="brand" id="home">근무 스케줄<span>.</span></a>
       <div class="nav-tabs">
+        <button class="nav-tab" data-tab="mine">내 스케줄</button>
         <button class="nav-tab" data-tab="sched">스케줄</button>
         <button class="nav-tab" data-tab="req">휴무 신청</button>
       </div>
@@ -283,7 +331,7 @@
         <span id="who" class="hint"></span>
         <button class="btn-admin admin-only" data-tab="admin">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
-          어드민<span class="badge-n" id="pendN" hidden></span>
+          <span class="lbl">어드민</span><span class="badge-n" id="pendN" hidden></span>
         </button>
         <button id="logout" class="btn btn-ghost">로그아웃</button>
       </div>
@@ -299,6 +347,12 @@
       </div>
       <div class="month-nav"><button id="prev" class="btn">← 이전 달</button><button id="next" class="btn">다음 달 →</button></div>
     </div>
+
+    <section id="mine" class="section" hidden>
+      <div class="cal-summary" id="mineSummary"></div>
+      <div class="cal" id="cal"></div>
+      <p class="hint" id="mineHint" style="margin-top:12px"></p>
+    </section>
 
     <section id="sched" class="section">
       <div class="toolbar">
@@ -488,35 +542,40 @@ async function start() {
   document.body.classList.toggle('admin', me.is_admin);
   $('#who').textContent = `${me.name} · ${me.team}`;
   await load();
-  showTab('sched');
+  showTab(homeTab());
   if (me.is_admin) loadAdmin();
 }
 
 // ---------- 공통 ----------
+// 휴대폰은 내 스케줄(달력), PC는 전체 스케줄표부터
+const homeTab = () => matchMedia('(max-width: 720px)').matches ? 'mine' : 'sched';
 function showTab(t) {
   tab = t;
-  for (const s of ['sched', 'req', 'admin']) $('#' + s).hidden = s !== t;
+  for (const s of ['mine', 'sched', 'req', 'admin']) $('#' + s).hidden = s !== t;
   document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
-  $('#kicker').textContent = { sched: 'CS / WORK SCHEDULE', req: 'CS / DAY-OFF REQUEST', admin: 'CS / ADMIN' }[t];
+  $('#kicker').textContent = { mine: 'CS / MY SCHEDULE', sched: 'CS / WORK SCHEDULE', req: 'CS / DAY-OFF REQUEST', admin: 'CS / ADMIN' }[t];
   $('.month-nav').hidden = t === 'admin';
   if (t === 'admin') loadAdmin();
+  if (t === 'mine' && sched) renderMine();
   renderHead();
   // 제목은 탭마다 같은 요소라 애니메이션을 다시 걸어줌
   for (const el of [$('.page-title'), $('.page-title .hero-dot')]) { el.style.animation = 'none'; el.offsetWidth; el.style.animation = ''; }
 }
 document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
-$('#home').onclick = ev => { ev.preventDefault(); showTab('sched'); };
+$('#home').onclick = ev => { ev.preventDefault(); showTab(homeTab()); };
 
 function renderHead() {
   if (!sched) return;
   const deadline = `${+addMonth(month, -1).slice(5)}월 20일`;
-  $('#monthLabel').textContent = tab === 'admin' ? '어드민' : label(month) + (tab === 'sched' ? ' 스케줄' : ' 휴무 신청');
+  $('#monthLabel').textContent = tab === 'admin' ? '어드민' : label(month) + { mine: ' 내 스케줄', sched: ' 스케줄', req: ' 휴무 신청' }[tab];
   const days = Array.from({ length: daysIn(month) }, (_, i) => i + 1);
   const hols = Object.entries(HOLIDAYS).filter(([k]) => k.startsWith(month));
   const monthInfo = `주말 <b>${days.filter(d => [0, 6].includes(dow(month, d))).length}일</b>`
-    + ` · 공휴일 <b>${hols.length}일</b>${hols.length ? ` (${hols.map(([k, v]) => `${+k.slice(8)}일 ${v === '대체' ? '대체공휴일' : v}`).join(', ')})` : ''}`
+    // 공휴일 수 = 필요휴무 한도 (대체공휴일은 원래 공휴일과 같은 날로 보고 따로 표기)
+    + ` · 공휴일 <b>${offLimit(month)}일</b>${hols.length ? ` (${hols.map(([k, v]) => `${+k.slice(8)}일 ${v === '대체' ? '대체공휴일' : v}`).join(', ')})` : ''}`
     + ` · 기본 휴무 <b>${days.filter(d => isRest(month, d)).length}일</b>`;
-  $('#pageDesc').innerHTML = tab === 'sched' ? monthInfo + '<br>공가·연차·필요휴무는 전달 <b>20일</b>까지 신청, 최종 스케줄은 <b>25일</b>에 확정돼요.'
+  $('#pageDesc').innerHTML = tab === 'mine' ? monthInfo
+    : tab === 'sched' ? monthInfo + '<br>공가·연차·필요휴무는 전달 <b>20일</b>까지 신청, 최종 스케줄은 <b>25일</b>에 확정돼요.'
     : tab === 'req' ? (canRequest(month) ? `이번 신청 마감은 <b>${deadline}</b>이에요.` : `${deadline}에 신청이 마감됐어요.`)
     : `대기 중인 신청 <b>${adminReqs.filter(r => r.status === '대기').length}건</b> · 승인하면 해당 달 스케줄에 바로 들어가요.`;
 }
@@ -547,7 +606,7 @@ async function loadReqs() {
   const { data } = await sb.from('ws_requests').select('*')
     .gte('date', month + '-01').lte('date', ymd(month, daysIn(month))).order('date');
   reqs = data || [];
-  renderHead(); renderGrid(); renderReq();
+  renderHead(); renderGrid(); renderReq(); renderMine();
 }
 
 // ---------- 스케줄표 ----------
@@ -660,15 +719,51 @@ $('#copy').onclick = async () => {
   alert('복사했어요.\n구글시트에서 첫 직원 줄의 "파트" 칸을 선택하고 붙여넣으세요.');
 };
 
+// ---------- 내 스케줄 (달력, 일요일 시작) ----------
+function renderMine() {
+  const show = sched.published || me.is_admin, n = daysIn(month), open = canRequest(month);
+  const today = new Date().toLocaleDateString('sv');
+  const myReq = {};
+  for (const r of reqs) if (r.employee_id === me.id && r.status !== '반려') myReq[+r.date.slice(8)] = r;
+  const cnt = { 근무: 0, 휴일: 0, 연차: 0, 공가: 0, 생일: 0 };
+  let h = [...DOW].map((w, i) => `<div class="cal-h${i === 0 ? ' sun' : i === 6 ? ' sat' : ''}">${w}</div>`).join('');
+  h += '<div class="cal-cell empty"></div>'.repeat(dow(month, 1));
+  for (let d = 1; d <= n; d++) {
+    const c = show ? cellOf(me, month, d, sched.cells) : null, r = myReq[d], hol = HOLIDAYS[ymd(month, d)];
+    if (c === '') cnt.근무++; else if (c in cnt) cnt[c]++;
+    const cls = ['cal-cell', CLS[c], isRest(month, d) && 'rest', ymd(month, d) === today && 'today', r?.status === '대기' && 'pend', open && 'can'].filter(Boolean).join(' ');
+    h += `<button type="button" class="${cls}" data-day="${d}"${open ? ' title="눌러서 휴무 신청"' : ''}>
+      <span class="cal-d">${d}</span>${hol ? `<span class="cal-hol">${hol === '대체' ? '대체공휴일' : hol}</span>` : ''}
+      ${r && (r.status === '대기' || !show) ? `<span class="cal-req">${r.status}<span class="k"> · ${r.kind}</span></span>` : ''}
+      ${c ? `<span class="cal-code">${c}</span>` : ''}</button>`;
+  }
+  h += '<div class="cal-cell empty"></div>'.repeat((7 - (dow(month, 1) + n) % 7) % 7);
+  $('#cal').innerHTML = h;
+  const used = reqs.filter(r => r.employee_id === me.id && r.kind === '필요휴무' && r.status !== '반려').length;
+  $('#mineSummary').innerHTML = (show
+    ? `<span>근무 <b>${cnt.근무}</b>일</span><span>휴일 <b>${cnt.휴일}</b>일</span>`
+      + ['연차', '공가', '생일'].filter(k => cnt[k]).map(k => `<span>${k} <b>${cnt[k]}</b>일</span>`).join('')
+    : '<span class="pill pill-wait">확정 전</span><span>최종 스케줄은 25일에 나와요. 내 신청만 표시돼요.</span>')
+    + `<span class="cal-quota">필요휴무 <b>${used}/${offLimit(month)}</b></span>`;
+  $('#mineHint').textContent = open ? '날짜를 누르면 그 날짜로 휴무 신청을 할 수 있어요.' : '';
+}
+$('#cal').onclick = ev => {
+  const d = ev.target.closest('[data-day]')?.dataset.day;
+  if (!d || !canRequest(month)) return;
+  showTab('req');
+  $('#reqForm').date.value = ymd(month, +d);
+  $('#reqForm').kind.focus();
+};
+
 // ---------- 휴무 신청 ----------
 function renderReq() {
   const open = canRequest(month), mine = reqs.filter(r => r.employee_id === me.id);
-  const used = mine.filter(r => r.kind === '필요휴무' && r.status !== '반려').length, lim = offLimit(me, month, rotations);
+  const used = mine.filter(r => r.kind === '필요휴무' && r.status !== '반려').length, lim = offLimit(month);
   $('#reqForm').hidden = !open;
   $('#reqForm').date.min = month + '-01';
   $('#reqForm').date.max = ymd(month, daysIn(month));
   $('#quota').innerHTML = `필요휴무 <b>${used} / ${lim}</b>일 <span class="hint">` +
-    (onRotation(me, rotations) ? '이번 달 공휴일 수만큼 쓸 수 있어요' : '이번 달 주말·공휴일 수') + '</span>';
+    '이번 달 공휴일 수만큼 쓸 수 있어요</span>';
   $('#myReqs').innerHTML = mine.length
     ? '<thead><tr><th>날짜</th><th>종류</th><th>사유</th><th>상태</th><th></th></tr></thead><tbody>' + mine.map(r =>
       `<tr><td class="date">${dayLabel(r.date)}</td><td>${r.kind}</td><td class="reason">${esc(r.reason)}</td>
@@ -680,7 +775,7 @@ $('#reqForm').onsubmit = async ev => {
   ev.preventDefault();
   const f = ev.target, kind = f.kind.value;
   const used = reqs.filter(r => r.employee_id === me.id && r.kind === '필요휴무' && r.status !== '반려').length;
-  const lim = offLimit(me, month, rotations);
+  const lim = offLimit(month);
   if (kind === '필요휴무' && used >= lim) return alert(`필요휴무는 이번 달 ${lim}일까지 신청할 수 있어요.`);
   const { error } = await sb.from('ws_requests').insert({ employee_id: me.id, date: f.date.value, kind, reason: f.reason.value.trim() });
   if (error) return alert(error.code === '23505' ? '그 날짜엔 이미 신청이 있어요.' : '신청 실패: ' + error.message);
