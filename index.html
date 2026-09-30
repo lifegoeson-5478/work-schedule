@@ -170,6 +170,7 @@
   #grid tr.count th, #grid tr.count td { background: var(--bg); font-family: var(--mono); font-size: 12px; border-bottom-color: var(--border); }
   #grid tr.count th { font-family: 'Pretendard', sans-serif; font-size: 12px; font-weight: 700; color: var(--text2); }
   #grid tr.count td.short { background: #FEE2E2; color: #B91C1C; font-weight: 700; }
+  #grid tr.count td.edge { background: #FEF3C7; color: #B45309; font-weight: 700; }
   #grid td.off { background: var(--orange-light); color: var(--orange); }
   #grid td.leave { background: var(--blue-light); color: var(--blue); }
   #grid td.bday { background: var(--purple-light); color: var(--purple); }
@@ -255,6 +256,13 @@
   .cal-cell.today { box-shadow: inset 0 0 0 2px var(--text); }
   .cal-cell.pend { border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); }
   .cal-cell.gone { background: var(--bg); color: var(--text3); }
+  .cal-top { display: flex; align-items: center; justify-content: space-between; gap: 4px; width: 100%; }
+  .cal-risk { padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+  .cal-risk.edge { background: #FEF3C7; color: #B45309; }
+  .cal-risk.short { background: #FEE2E2; color: #B91C1C; }
+  .risk-note { margin: -8px 0 18px; padding: 9px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; line-height: 1.5; border: 1px solid; }
+  .risk-note.edge { color: #B45309; background: #FFFBEB; border-color: #FDE68A; }
+  .risk-note.short { color: #B91C1C; background: #FEF2F2; border-color: #FECACA; }
   .cal-d { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .cal-cell.rest .cal-d, .cal-hol { color: var(--danger); }
   .cal-hol { max-width: 100%; font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -291,6 +299,8 @@
     .cal-d { font-size: 12px; }
     .cal-hol, .cal-req { font-size: 9px; }
     .cal-req .k { display: none; }
+    .cal-top { flex-direction: column; align-items: flex-start; gap: 1px; }
+    .cal-risk { padding: 0 4px; font-size: 9px; }
     .cal-code { padding: 1px 5px; font-size: 11px; }
     .cal-summary { gap: 4px 12px; }
     .cal-summary b { font-size: 16px; }
@@ -410,7 +420,7 @@
       <div class="legend">
         <span><i></i>근무</span><span><i class="off"></i>휴일</span><span><i class="leave"></i>연차</span>
         <span><i class="bday"></i>생일(반차)</span><span><i class="official"></i>공가</span><span><i class="gone"></i>퇴직</span>
-        <span class="note admin-only">클릭 = 근무코드 변경 · 오른쪽 클릭 = 빈칸 · 파란 테두리 = 대기중 신청 · 빨간 인원 = 최소 인원 부족 · 빨간 밑줄 = 주(토~금) 5일 초과</span>
+        <span class="note admin-only">클릭 = 근무코드 변경 · 오른쪽 클릭 = 빈칸 · 파란 테두리 = 대기중 신청 · 빨간 인원 = 최소 인원 부족 · 주황 인원 = 딱 최소 · 빨간 밑줄 = 주(토~금) 5일 초과</span>
       </div>
     </section>
 
@@ -423,6 +433,7 @@
         <input name="reason" class="input input-lg reason" placeholder="사유 (선택)" maxlength="100">
         <button class="btn btn-lg btn-primary">신청</button>
       </form>
+      <div class="risk-note" id="reqRisk" hidden></div>
       <div class="quota" id="quota"></div>
       <div class="sec-lbl">MY REQUESTS</div>
       <table class="list" id="myReqs"></table>
@@ -493,14 +504,14 @@
         </svg>
         오류/문의 보내기
       </a>
-      <span class="site-footer-version">v2026.09.30.3</span>
+      <span class="site-footer-version">v2026.09.30.4</span>
     </div>
   </footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <!-- ?v= 는 배포마다 올리기 (GitHub Pages가 10분 캐시해서 예전 logic.js와 섞이는 것 방지). 푸터 버전과 같이 -->
-<script src="logic.js?v=2026.09.30.3"></script>
+<script src="logic.js?v=2026.09.30.4"></script>
 <script>
 // 매장 정보 시스템(laundry24-store)과 같은 Supabase 프로젝트 (anon 키는 공개용. 권한은 DB 정책이 막아요)
 const SUPABASE_URL = 'https://ebiepxqkqeyyxewnddov.supabase.co';
@@ -515,6 +526,19 @@ const dayLabel = date => `${date.slice(5, 7)}.${date.slice(8)} ${DOW[new Date(da
 const pageUrl = location.origin + location.pathname;
 
 let me, emps = [], reqs = [], rotations = {}, sched, adj = {}, dirty = false, tab = 'sched';
+let dayCounts = {};   // { 팀: { 일: { am, pm, total } } } — DB 예상 인원 (확정 전에도 숫자만 보임)
+// 날짜별 예상 근무 인원 (스케줄 칸 → 로테이션 → 대기·승인 신청 순)
+async function loadDayCounts(m) {
+  const { data } = await sb.rpc('ws_day_counts', { p_month: m });
+  const out = {};
+  for (const r of data || []) (out[r.team] ||= {})[r.day] = { am: r.am, pm: r.pm, total: r.am + r.pm };
+  return out;
+}
+const riskTip = (e, d, c, risk) => {
+  const n = e.team === '런드리24' ? `${e.shift === '13:00' ? '오후' : '오전'}조 ${e.shift === '13:00' ? c.pm : c.am}명 (최소 1명)`
+    : `근무 ${c.total}명 (최소 ${minGo(month, d, sched?.peak)}명)`;
+  return `예상 ${n} · ${risk === '부족' ? '이미 최소 인원보다 적어요' : '연차를 쓰면 인원이 부족해져요'}`;
+};
 let adminReqs = [], adminScheds = {}, adminFilter = '대기';
 let month = fmtMonth(new Date());
 if (new Date().getDate() >= 25) month = addMonth(month, 1); // 25일 이후엔 다음 달 확정본부터
@@ -729,10 +753,12 @@ addEventListener('beforeunload', e => { if (dirty) e.preventDefault(); });
 
 async function load() {
   const prev = addMonth(month, -1);
-  const [s, ro] = await Promise.all([
+  const [s, ro, dc] = await Promise.all([
     sb.from('ws_schedules').select('*').in('month', [prev, month]),  // 지난달은 월초 주 5일 계산용
     sb.from('ws_rotations').select('*').eq('month', month),
+    loadDayCounts(month),
   ]);
+  dayCounts = dc;
   const byMonth = Object.fromEntries((s.data || []).map(r => [r.month, r]));
   sched = byMonth[month] || { month, cells: {}, peak: false, published: false };
   adj = { prev: byMonth[prev]?.cells || null };
@@ -791,7 +817,9 @@ function renderGrid() {
       const c = dayCount(emps, t, month, d, cells);
       const day = `${+month.slice(5)}/${d}(${DOW[dow(month, d)]})`;
       const tip = t === '런드리24' ? `${day} 오전 ${c.am}명 · 오후 ${c.pm}명 (각 최소 1명)` : `${day} 근무 ${c.total}명 · 최소 ${minGo(month, d, sched.peak)}명`;
-      return `<td data-col="${d}" class="${isShort(t, month, d, c, sched.peak) ? 'short' : ''}" title="${tip}">${t === '런드리24' ? c.am + '/' + c.pm : c.total}</td>`;
+      // 빨강 = 최소보다 적음, 주황 = 딱 최소 (한 명만 더 쉬어도 부족)
+      const edge = t === '런드리24' ? c.am === 1 || c.pm === 1 : c.total === minGo(month, d, sched.peak);
+      return `<td data-col="${d}" class="${isShort(t, month, d, c, sched.peak) ? 'short' : edge ? 'edge' : ''}" title="${tip}${edge && !isShort(t, month, d, c, sched.peak) ? '\n딱 최소 인원 — 한 명만 더 쉬어도 부족' : ''}">${t === '런드리24' ? c.am + '/' + c.pm : c.total}</td>`;
     }).join('') + '<td class="sum"></td></tr>';
   }
   $('#grid').innerHTML = h + '</tbody>';
@@ -871,9 +899,13 @@ function renderMine() {
   for (let d = 1; d <= n; d++) {
     const c = show ? cellOf(me, month, d, sched.cells) : null, r = myReq[d], hol = HOLIDAYS[ymd(month, d)];
     if (c === '') cnt.근무++; else if (c in cnt) cnt[c]++;
+    // 내가 근무인 날만: 내 팀(조) 예상 인원이 최소 이하면 연차 위험
+    const ct = dayCounts[me.team]?.[d], working = c === '' || (c === null && !r && active(me, ymd(month, d)));
+    const risk = working ? riskOf(me, month, d, ct, sched.peak) : null;
+    const tip = [risk && riskTip(me, d, ct, risk), open && '눌러서 휴무 신청'].filter(Boolean).join('\n');
     const cls = ['cal-cell', CLS[c], isRest(month, d) && 'rest', ymd(month, d) === today && 'today', r?.status === '대기' && 'pend', open && 'can'].filter(Boolean).join(' ');
-    h += `<button type="button" class="${cls}" data-day="${d}"${open ? ' title="눌러서 휴무 신청"' : ''}>
-      <span class="cal-d">${d}</span>${hol ? `<span class="cal-hol">${hol === '대체' ? '대체공휴일' : hol}</span>` : ''}
+    h += `<button type="button" class="${cls}" data-day="${d}"${tip ? ` title="${tip}"` : ''}>
+      <span class="cal-top"><span class="cal-d">${d}</span>${risk ? `<span class="cal-risk ${risk === '부족' ? 'short' : 'edge'}">${risk}</span>` : ''}</span>${hol ? `<span class="cal-hol">${hol === '대체' ? '대체공휴일' : hol}</span>` : ''}
       ${r && (r.status === '대기' || !show) ? `<span class="cal-req">${r.status}<span class="k"> · ${r.kind}</span></span>` : ''}
       ${c ? `<span class="cal-code">${c}</span>` : ''}</button>`;
   }
@@ -885,13 +917,15 @@ function renderMine() {
       + ['연차', '공가', '생일'].filter(k => cnt[k]).map(k => `<span>${k} <b>${cnt[k]}</b>일</span>`).join('')
     : '<span class="pill pill-wait">확정 전</span><span>최종 스케줄은 25일에 나와요. 내 신청만 표시돼요.</span>')
     + `<span class="cal-quota">필요휴무 <b>${used}/${offLimit(me, month, rotations)}</b></span>`;
-  $('#mineHint').textContent = open ? '날짜를 누르면 그 날짜로 휴무 신청을 할 수 있어요.' : '';
+  $('#mineHint').textContent = (open ? '날짜를 누르면 그 날짜로 휴무 신청을 할 수 있어요. ' : '')
+    + '위험 = 근무 인원이 딱 최소라 연차를 쓰면 부족해지는 날 · 부족 = 이미 최소보다 적은 날 (대기 중인 신청 포함 예상)';
 }
 $('#cal').onclick = ev => {
   const d = ev.target.closest('[data-day]')?.dataset.day;
   if (!d || !canRequest(month)) return;
   showTab('req');
   $('#reqForm').date.value = ymd(month, +d);
+  showReqRisk();
   $('#reqForm').kind.focus();
 };
 
@@ -912,6 +946,18 @@ function renderReq() {
        <td class="act">${r.status === '대기' && open ? `<button class="btn btn-sm" data-cancel="${r.id}">취소</button>` : ''}</td></tr>`).join('') + '</tbody>'
     : '<tbody><tr><td class="empty">이번 달 신청 내역이 없어요.</td></tr></tbody>';
 }
+// 신청 날짜를 고르면 그날 위험도 안내
+function showReqRisk() {
+  const v = $('#reqForm').date.value, d = v.startsWith(month) ? +v.slice(8) : 0;
+  const ct = d && dayCounts[me.team]?.[d], risk = ct && riskOf(me, month, d, ct, sched.peak);
+  $('#reqRisk').hidden = !risk;
+  if (risk) {
+    $('#reqRisk').className = 'risk-note ' + (risk === '부족' ? 'short' : 'edge');
+    $('#reqRisk').textContent = `${+month.slice(5)}/${d}(${DOW[dow(month, d)]}) ${riskTip(me, d, ct, risk)}. 가능하면 다른 날을 골라 주세요.`;
+  }
+}
+$('#reqForm').date.addEventListener('input', showReqRisk);
+
 $('#reqForm').onsubmit = async ev => {
   ev.preventDefault();
   const f = ev.target, kind = f.kind.value;
@@ -921,6 +967,8 @@ $('#reqForm').onsubmit = async ev => {
   const { error } = await sb.from('ws_requests').insert({ employee_id: me.id, date: f.date.value, kind, reason: f.reason.value.trim() });
   if (error) return alert(error.code === '23505' ? '그 날짜엔 이미 신청이 있어요.' : '신청 실패: ' + error.message);
   f.reset();
+  $('#reqRisk').hidden = true;
+  dayCounts = await loadDayCounts(month);
   loadReqs();
 };
 $('#myReqs').onclick = async ev => {
@@ -928,6 +976,7 @@ $('#myReqs').onclick = async ev => {
   if (!id || !confirm('신청을 취소할까요?')) return;
   const { error } = await sb.from('ws_requests').delete().eq('id', id);
   if (error) return alert(error.message);
+  dayCounts = await loadDayCounts(month);
   loadReqs();
 };
 
@@ -939,8 +988,11 @@ async function loadAdmin() {
   const months = [...new Set(adminReqs.map(r => r.date.slice(0, 7)))];
   const { data: ss } = months.length ? await sb.from('ws_schedules').select('*').in('month', months) : { data: [] };
   adminScheds = Object.fromEntries((ss || []).map(s => [s.month, s]));
+  // 예상 인원(대기 신청을 휴무로 친 값) = 승인했을 때 인원
+  adminCounts = Object.fromEntries(await Promise.all(months.map(async m => [m, await loadDayCounts(m)])));
   renderAdmin();
 }
+let adminCounts = {};
 // 편집 중인 달은 화면의 표(sched)를 기준으로
 const schedOf = m => m === month ? sched : (adminScheds[m] ||= { month: m, cells: {}, peak: false, published: false });
 
@@ -954,10 +1006,13 @@ function renderAdmin() {
   const byId = Object.fromEntries(emps.map(e => [e.id, e]));
   const list = adminReqs.filter(r => adminFilter === '전체' || r.status === adminFilter);
   $('#allReqs').innerHTML = list.length
-    ? '<thead><tr><th>날짜</th><th>이름</th><th>종류</th><th>사유</th><th>그날 근무</th><th>신청일</th><th></th></tr></thead><tbody>' + list.map(r => {
-      const e = byId[r.employee_id] || {}, m = r.date.slice(0, 7), c = dayCount(emps, e.team, m, +r.date.slice(8), schedOf(m).cells);
+    ? '<thead><tr><th>날짜</th><th>이름</th><th>종류</th><th>사유</th><th>그날 근무 (승인 시)</th><th>신청일</th><th></th></tr></thead><tbody>' + list.map(r => {
+      const e = byId[r.employee_id] || {}, m = r.date.slice(0, 7), d = +r.date.slice(8);
+      const c = adminCounts[m]?.[e.team]?.[d] || dayCount(emps, e.team, m, d, schedOf(m).cells);
+      const risk = r.status === '대기' && riskOf(e, m, d, c, schedOf(m).peak);
       return `<tr><td class="date">${r.date.slice(2, 4)}.${dayLabel(r.date)}</td><td>${esc(e.name)}<small>${esc(e.team)}</small></td><td>${r.kind}</td><td class="reason">${esc(r.reason)}</td>
-        <td>${e.team === '런드리24' ? `오전 ${c.am} · 오후 ${c.pm}` : c.total + '명'}</td>
+        <td>${e.team === '런드리24' ? `오전 ${c.am} · 오후 ${c.pm}` : c.total + '명'}${risk
+          ? ` <span class="pill ${risk === '부족' ? 'st-반려' : 'pill-wait'}" title="승인하면 ${e.team === '런드리24' ? (e.shift === '13:00' ? '오후조' : '오전조') + ' ' + (e.shift === '13:00' ? c.pm : c.am) + '명 (최소 1명)' : '근무 ' + c.total + '명 (최소 ' + minGo(m, d, schedOf(m).peak) + '명)'}">${risk === '부족' ? '승인 시 부족' : '승인 시 딱 최소'}</span>` : ''}</td>
         <td class="date hint">${r.created_at ? r.created_at.slice(5, 10).replace('-', '.') : ''}</td>
         <td class="act">${r.status === '대기' ? `<button class="btn btn-sm btn-primary" data-ok="${r.id}">승인</button> <button class="btn btn-sm" data-no="${r.id}">반려</button>` : `<span class="pill st-${r.status}">${r.status}</span>`}</td></tr>`;
     }).join('') + '</tbody>'

@@ -65,6 +65,15 @@ const minGo = (month, d, peak) => isRest(month, d) ? (peak ? 4 : 3) : 5;
 const isShort = (team, month, d, c, peak) =>
   team === '런드리24' ? c.am < 1 || c.pm < 1 : c.total < minGo(month, d, peak);
 
+// 연차 쓰면 위험한 날: 내 팀(런드리24는 내 조) 근무 인원이 최소면 '위험', 최소보다 적으면 '부족'
+// c = { am, pm, total } (dayCount 결과 또는 DB 예상 인원)
+function riskOf(e, month, d, c, peak) {
+  if (!c) return null;
+  const n = e.team === '런드리24' ? (e.shift === '13:00' ? c.pm : c.am) : c.total;
+  const min = e.team === '런드리24' ? 1 : minGo(month, d, peak);
+  return n < min ? '부족' : n === min ? '위험' : null;
+}
+
 // ---------- 주 5일 근무 (한 주 = 토~금, 월 경계는 앞뒤 달 칸까지 봄) ----------
 const worksOn = c => c === '' || c === '생일'; // 생일은 반차라 근무일로 셈
 // month에 걸친 주들. 각 주 = [{ m: 'YYYY-MM', d }] 7일 (앞뒤 달 날짜 포함)
@@ -208,5 +217,5 @@ function toTSV(emps, month, cells) {
 
 if (typeof module !== 'undefined') module.exports = {
   TEAMS, CODES, DOW, HOLIDAYS, fmtMonth, addMonth, daysIn, ymd, dow, isRest, holidayCount, active, cellOf,
-  restQuota, rotationOffs, offLimit, canRequest, dayCount, isShort, weeksOf, weekWork, weekIssues, autoSchedule, rotationGaps, toTSV,
+  restQuota, rotationOffs, offLimit, canRequest, dayCount, isShort, riskOf, weeksOf, weekWork, weekIssues, autoSchedule, rotationGaps, toTSV,
 };

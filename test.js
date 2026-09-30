@@ -62,6 +62,18 @@ for (let run = 0; run < 50; run++) {
 }
 assert.deepEqual(L.rotationGaps(emps, '런드리24', M, rot), []);
 assert.deepEqual(L.rotationGaps(emps, '런드리24', M, { 10: '금·토', 11: '금·토', 12: '수·목', 13: '수·목' }), ['수 오후', '목 오후', '금 오전', '토 오전']);
+// 연차 위험한 날
+{
+  const go1 = emps[1], am = emps[9], pm = emps[11];
+  assert.equal(L.riskOf(go1, '2026-10', 6, { total: 6 }, false), null);   // 화 6명 > 최소 5
+  assert.equal(L.riskOf(go1, '2026-10', 6, { total: 5 }, false), '위험');
+  assert.equal(L.riskOf(go1, '2026-10', 6, { total: 4 }, false), '부족');
+  assert.equal(L.riskOf(go1, '2026-10', 3, { total: 3 }, false), '위험');   // 개천절(토) 최소 3
+  assert.equal(L.riskOf(go1, '2026-10', 3, { total: 3 }, true), '부족');    // 성수기 주말 최소 4
+  assert.equal(L.riskOf(am, '2026-10', 6, { am: 1, pm: 2 }, false), '위험');  // 런드리24는 내 조 기준
+  assert.equal(L.riskOf(pm, '2026-10', 6, { am: 1, pm: 2 }, false), null);
+}
+
 // 주 5일 (토~금): 2026-10-31(토)~11-06(금)은 10월·11월에 걸침
 assert.deepEqual(L.weeksOf('2026-11')[0].map(x => x.m.slice(5) + '/' + x.d), ['10/31', '11/1', '11/2', '11/3', '11/4', '11/5', '11/6']);
 assert.equal(L.weeksOf('2026-08')[0][0].d, 1);   // 8/1이 토요일이면 그날부터
