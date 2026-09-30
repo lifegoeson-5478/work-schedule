@@ -36,7 +36,8 @@
   /* 버튼 */
   .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border-radius: 8px; font: 600 13px inherit; font-family: inherit; border: 1.5px solid var(--border2); background: var(--white); color: var(--text2); white-space: nowrap; cursor: pointer; transition: background .15s, border-color .15s, color .15s, transform .12s var(--ease-out); }
   .btn:hover { border-color: var(--text3); color: var(--text); }
-  .btn:active { transform: scale(.97); }
+  .btn:active:not(:disabled) { transform: scale(.97); }
+  .btn:disabled, .btn:disabled:hover { opacity: .4; cursor: not-allowed; border-color: var(--border2); color: var(--text2); }
   .btn-sm { padding: 5px 11px; font-size: 12px; }
   .btn-lg { padding: 11px 20px; font-size: 14px; border-radius: 10px; }
   .btn-block { width: 100%; }
@@ -541,8 +542,12 @@ const riskTip = (e, d, c, risk) => {
   return `예상 ${n} · ${risk === '부족' ? '이미 최소 인원보다 적어요' : '연차를 쓰면 인원이 부족해져요'}`;
 };
 let adminReqs = [], adminScheds = {}, adminFilter = '대기';
+// 사이트 기준월: 이보다 이전 달은 안 보임 (계산용 지난달 데이터만 내부에서 씀)
+const START_MONTH = '2026-10';
+const clampMonth = m => m < START_MONTH ? START_MONTH : m;
 let month = fmtMonth(new Date());
 if (new Date().getDate() >= 25) month = addMonth(month, 1); // 25일 이후엔 다음 달 확정본부터
+month = clampMonth(month);
 
 const now = new Date();
 document.querySelectorAll('.js-today').forEach(el => el.textContent =
@@ -729,6 +734,7 @@ document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => showTab(b
 $('#home').onclick = ev => { ev.preventDefault(); showTab(homeTab()); };
 
 function renderHead() {
+  $('#prev').disabled = month <= START_MONTH;
   if (!sched) return;
   const deadline = `${+addMonth(month, -1).slice(5)}월 20일`;
   $('#monthLabel').textContent = tab === 'admin' ? '어드민' : label(month) + { mine: ' 내 스케줄', sched: ' 스케줄', req: ' 휴무 신청' }[tab];
@@ -744,6 +750,7 @@ function renderHead() {
 }
 
 function go(k) {
+  if (addMonth(month, k) < START_MONTH) return;
   if (dirty && !confirm('저장하지 않은 변경이 있어요. 버리고 이동할까요?')) return;
   month = addMonth(month, k);
   load();
@@ -988,7 +995,8 @@ $('#myReqs').onclick = async ev => {
 // ---------- 어드민: 휴무 신청 승인 (달 구분 없이, 대기 전부 + 지난달부터 처리 내역) ----------
 async function loadAdmin() {
   const from = addMonth(fmtMonth(new Date()), -1) + '-01';
-  const { data } = await sb.from('ws_requests').select('*').or(`status.eq.대기,date.gte.${from}`).order('date');
+  const { data } = await sb.from('ws_requests').select('*').gte('date', START_MONTH + '-01')
+    .or(`status.eq.대기,date.gte.${from}`).order('date');
   adminReqs = data || [];
   const months = [...new Set(adminReqs.map(r => r.date.slice(0, 7)))];
   const { data: ss } = months.length ? await sb.from('ws_schedules').select('*').in('month', months) : { data: [] };
@@ -1060,7 +1068,7 @@ $('#adminTabs').onclick = ev => {
 
 // ---------- 어드민: 로테이션 (12개월 표) ----------
 const PAIRS = ['일·월', '월·화', '화·수', '수·목', '목·금', '금·토', '토·일'];
-let rotStart = fmtMonth(new Date()), rotData = {}, rotEdit = {};
+let rotStart = clampMonth(fmtMonth(new Date())), rotData = {}, rotEdit = {};
 const rotMonths = () => Array.from({ length: 12 }, (_, i) => addMonth(rotStart, i));
 const rotVal = (id, m) => rotEdit[id + '|' + m] ?? rotData[id + '|' + m] ?? '';
 
@@ -1074,6 +1082,7 @@ async function loadRot() {
 }
 function renderRot() {
   const months = rotMonths(), n = Object.keys(rotEdit).length;
+  $('#rotPrev').disabled = rotStart <= START_MONTH;
   $('#rotRange').textContent = `${months[0].replace('-', '.')} — ${months[11].replace('-', '.')}`;
   $('#rotStatus').innerHTML = n ? `<span class="pill pill-dirty">저장 안 됨 ${n}칸</span>` : '';
   let h = '<thead><tr><th class="name">NAME</th>' + months.map(m => `<th>${m.slice(2).replace('-', '.')}</th>`).join('') + '</tr></thead><tbody>';
@@ -1101,7 +1110,7 @@ $('#rotGrid').onchange = ev => {
   if (ev.target.value === (rotData[k] ?? '')) delete rotEdit[k]; else rotEdit[k] = ev.target.value;
   renderRot();
 };
-$('#rotPrev').onclick = async () => { const s = rotStart; rotStart = addMonth(rotStart, -3); if (await loadRot() === false) rotStart = s; };
+$('#rotPrev').onclick = async () => { const s = rotStart; rotStart = clampMonth(addMonth(rotStart, -3)); if (await loadRot() === false) rotStart = s; };
 $('#rotNext').onclick = async () => { const s = rotStart; rotStart = addMonth(rotStart, 3); if (await loadRot() === false) rotStart = s; };
 $('#rotSave').onclick = async () => {
   const ups = [], dels = [];
