@@ -296,7 +296,7 @@
       <div class="legend">
         <span><i></i>근무</span><span><i class="off"></i>휴일</span><span><i class="leave"></i>연차</span>
         <span><i class="bday"></i>생일(반차)</span><span><i class="official"></i>공가</span><span><i class="gone"></i>퇴직</span>
-        <span class="note admin-only">칸 클릭 = 근무코드 변경 · 파란 테두리 = 대기중 신청 · 빨간 인원 = 최소 인원 부족</span>
+        <span class="note admin-only">클릭 = 근무코드 변경 · 오른쪽 클릭 = 빈칸 · 파란 테두리 = 대기중 신청 · 빨간 인원 = 최소 인원 부족</span>
       </div>
     </section>
 
@@ -560,7 +560,18 @@ $('#grid').onclick = ev => {
   dirty = true;
   renderGrid();
 };
-$('#peak').onchange = () => { sched.peak = $('#peak').checked; dirty = true; renderGrid(); };
+// 오른쪽 클릭 = 근무(빈칸)로 되돌리기
+$('#grid').oncontextmenu = ev => {
+  const td = ev.target.closest('td[data-e]');
+  if (!me.is_admin || !td || td.classList.contains('gone')) return;
+  ev.preventDefault();
+  const { e, d } = td.dataset;
+  if (!sched.cells[e]?.[d]) return;
+  delete sched.cells[e][d];
+  dirty = true;
+  renderGrid();
+};
+$('#peak').onchange =() => { sched.peak = $('#peak').checked; dirty = true; renderGrid(); };
 $('#auto').onclick = () => {
   const noRot = emps.filter(e => e.team === '런드리24' && !rotations[e.id] && active(e, ymd(month, daysIn(month)))).map(e => e.name);
   if (noRot.length && !confirm(`로테이션이 없는 런드리24 직원: ${noRot.join(', ')}\n그래도 진행할까요?`)) return;
