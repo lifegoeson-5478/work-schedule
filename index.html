@@ -1,0 +1,813 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>근무 스케줄</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23212121'/><rect x='8' y='10' width='16' height='13' rx='2' fill='none' stroke='white' stroke-width='2.4'/><path d='M8 14.5h16' stroke='white' stroke-width='2.4'/><circle cx='23.5' cy='23.5' r='3' fill='%230BC390'/></svg>">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" media="print" onload="this.media='all'">
+<style>
+  /* 매장 정보 시스템(laundry24-store)과 같은 규칙: 연회색 종이 바탕 · 1px 선 · 모노 라벨 + 큰 제목과 초록 마침표 · 주요 버튼은 검정 */
+  :root {
+    --paper: #F4F5F7; --white: #fff; --bg: #EAECEF;
+    --border: #DADEE3; --border2: #D3D8DF; --line: #E1E4E8;
+    --text: #212121; --text2: #4D505A; --text3: #9097A2;
+    --accent: #0BC390; --accent-text: #08926C; --accent-light: #CDF3E9;
+    --blue: #0485D7; --blue-light: #CFEAFE; --orange: #C2410C; --orange-light: #FFE6DC;
+    --purple: #6D28D9; --purple-light: #EDE9FE; --danger: #E03E3E;
+    --ease-out: cubic-bezier(.2,.7,.2,1);
+    --mono: 'JetBrains Mono', 'Pretendard', ui-monospace, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
+  body { font-family: 'Pretendard', -apple-system, 'Malgun Gothic', sans-serif; background: var(--paper); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  ::selection { background: rgba(11,195,144,.18); }
+  a { color: inherit; }
+  input[type=checkbox] { accent-color: var(--text); width: 15px; height: 15px; }
+  .mono { font-family: var(--mono); letter-spacing: .02em; }
+  .hint { font-size: 12px; color: var(--text3); font-weight: 500; }
+  .hero-dot { color: var(--accent); display: inline-block; animation: dotPop .5s .4s cubic-bezier(.3,1.6,.5,1) backwards; transform-origin: 50% 80%; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } }
+  @keyframes heroUp { from { opacity: 0; transform: translateY(14px); } }
+  @keyframes dotPop { 0% { transform: scale(0); } 70% { transform: scale(1.4); } 100% { transform: scale(1); } }
+
+  /* 버튼 */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border-radius: 8px; font: 600 13px inherit; font-family: inherit; border: 1.5px solid var(--border2); background: var(--white); color: var(--text2); white-space: nowrap; cursor: pointer; transition: background .15s, border-color .15s, color .15s, transform .12s var(--ease-out); }
+  .btn:hover { border-color: var(--text3); color: var(--text); }
+  .btn:active { transform: scale(.97); }
+  .btn-sm { padding: 5px 11px; font-size: 12px; }
+  .btn-lg { padding: 11px 20px; font-size: 14px; border-radius: 10px; }
+  .btn-block { width: 100%; }
+  .btn-primary { background: var(--text); border-color: var(--text); color: #fff; }
+  .btn-primary:hover { background: #000; border-color: #000; color: #fff; }
+  .btn-ghost { border-color: transparent; background: none; }
+  .btn-ghost:hover { background: var(--bg); border-color: transparent; }
+
+  /* 입력 */
+  .input { padding: 8px 12px; border: 1.5px solid var(--border2); border-radius: 8px; font: 500 13px inherit; font-family: inherit; background: var(--white); color: var(--text); outline: none; transition: border-color .15s, box-shadow .15s; }
+  .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(11,195,144,.1); }
+  .input-lg { padding: 11px 14px; font-size: 14px; border-radius: 9px; width: 100%; }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .field > label { font-size: 12px; font-weight: 700; color: var(--text2); }
+  .pw-wrap { position: relative; }
+  .pw-wrap .input { padding-right: 56px; }
+  .pw-toggle { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); border: none; background: none; color: var(--text3); font: 600 12px inherit; font-family: inherit; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+  .pw-toggle:hover { color: var(--text); background: var(--bg); }
+  .alert { font-size: 13px; border-radius: 8px; padding: 9px 12px; margin-bottom: 14px; line-height: 1.5; border: 1px solid; }
+  .alert-error { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+  .alert-success { color: var(--accent-text); background: var(--accent-light); border-color: rgba(11,195,144,.35); }
+
+  /* 로그인 */
+  .auth-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px 16px; }
+  .auth-card { max-width: 400px; width: 100%; animation: fadeUp .3s var(--ease-out); }
+  .auth-brand { margin-bottom: 26px; }
+  .auth-card .hero-meta { margin-bottom: 26px; }
+  .auth-heading { font-size: 34px; font-weight: 800; line-height: 1.1; letter-spacing: -.05em; animation: heroUp .55s var(--ease-out) backwards; }
+  .auth-lead { font-size: 13px; color: var(--text2); margin: 8px 0 26px; }
+  .auth-links { margin-top: 16px; font-size: 13px; }
+  .auth-links a, .auth-foot a { color: var(--text2); font-weight: 500; text-decoration: underline; text-decoration-color: var(--border2); text-underline-offset: 3px; }
+  .auth-links a:hover, .auth-foot a:hover { color: var(--text); text-decoration-color: var(--text); }
+  .auth-foot { font-size: 12px; color: var(--text3); margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border); line-height: 1.7; }
+
+  /* 로고 (워드마크): 큰 제목과 같은 굵기 + 초록 마침표 */
+  .brand { font-size: 19px; font-weight: 800; letter-spacing: -.05em; color: var(--text); white-space: nowrap; }
+  .brand span { color: var(--accent); }
+  .auth-brand .brand { font-size: 22px; }
+
+  /* 어드민 버튼 · 탭 · 필터 칩 */
+  .btn-admin { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border: none; border-radius: 8px; background: none; color: var(--text2); font: 500 13px inherit; font-family: inherit; cursor: pointer; }
+  .btn-admin:hover { background: var(--bg); color: var(--text); }
+  .btn-admin.active { color: var(--text); font-weight: 700; background: var(--bg); }
+  .badge-n { min-width: 18px; padding: 1px 6px; border-radius: 999px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 700; text-align: center; }
+  .admin-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
+  .atab { padding: 10px 14px; font: 500 14px inherit; font-family: inherit; color: var(--text2); background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; transition: color .15s; }
+  .atab:hover { color: var(--text); }
+  .atab.active { color: var(--text); font-weight: 700; border-bottom-color: var(--text); }
+  .btn-danger-ghost { border-color: transparent; background: transparent; color: #b91c1c; }
+  .btn-danger-ghost:hover { background: #fee2e2; border-color: #fecaca; color: #b91c1c; }
+
+  /* 담당자 폼 */
+  .emp-form { border-top: 1px solid var(--text); padding: 18px 0 26px; margin-bottom: 8px; }
+  .emp-form-title { font-size: 20px; font-weight: 800; letter-spacing: -.03em; margin-bottom: 16px; }
+  .fgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px 12px; }
+  .fg { display: flex; flex-direction: column; gap: 6px; }
+  .fg > label { font-size: 12px; font-weight: 700; color: var(--text2); }
+  .fg .input { padding: 10px 12px; font-size: 14px; border-radius: 10px; width: 100%; }
+  .fg.check { justify-content: flex-end; }
+  .fg.check label { display: flex; align-items: center; gap: 8px; height: 42px; font-size: 14px; color: var(--text); cursor: pointer; }
+  .edit-actions { display: flex; align-items: center; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  table.list tr.retired td { opacity: .5; }
+  .filter-bar { display: flex; gap: 2px; flex-wrap: wrap; margin-bottom: 14px; }
+  .chip { padding: 6px 12px; border-radius: 999px; border: none; background: none; color: var(--text2); font: 500 13px inherit; font-family: inherit; cursor: pointer; }
+  .chip:hover { background: var(--bg); color: var(--text); }
+  .chip.on, .chip.on:hover { background: var(--text); color: #fff; }
+  .chip-n { margin-left: 5px; font-size: 12px; font-weight: 600; color: var(--text3); }
+  .chip.on .chip-n { color: rgba(255,255,255,.55); }
+
+  /* 헤더 */
+  header { position: sticky; top: 0; z-index: 200; background: rgba(244,245,247,.85); backdrop-filter: saturate(180%) blur(14px); -webkit-backdrop-filter: saturate(180%) blur(14px); border-bottom: 1px solid var(--border); }
+  .nav-inner { max-width: 1280px; margin: 0 auto; padding: 0 24px; height: 60px; display: flex; align-items: center; }
+  .nav-inner .brand { margin-right: 36px; }
+  .nav-tabs { display: flex; height: 60px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .nav-tab { position: relative; padding: 0 18px; height: 60px; display: flex; align-items: center; font: 500 14px inherit; font-family: inherit; color: var(--text2); cursor: pointer; background: none; border: none; white-space: nowrap; transition: color .15s; }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active { color: var(--text); font-weight: 700; }
+  .nav-tab::after { content: ''; position: absolute; left: 18px; right: 18px; bottom: 0; height: 2px; border-radius: 3px 3px 0 0; background: var(--text); transform: scaleX(0); transition: transform .3s var(--ease-out); }
+  .nav-tab:hover::after { transform: scaleX(.35); background: var(--border2); }
+  .nav-tab.active::after { transform: scaleX(1); background: var(--text); }
+  .nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+  /* 페이지 머리 */
+  .pg-inner { max-width: 1280px; margin: 0 auto; padding: 26px 24px 64px; }
+  .hero-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--text3); text-transform: uppercase; }
+  .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin: 22px 0 28px; }
+  .page-title { font-size: 40px; font-weight: 800; line-height: 1.06; letter-spacing: -.05em; animation: heroUp .55s var(--ease-out) backwards; }
+  .page-desc { font-size: 14px; line-height: 1.6; color: var(--text2); margin-top: 12px; }
+  .page-desc b { color: var(--text); }
+  .month-nav { display: flex; gap: 6px; }
+  .section { animation: fadeUp .32s var(--ease-out); }
+
+  /* 스케줄 툴바 */
+  .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 14px 4px; border-top: 1px solid var(--text); border-bottom: 1px solid var(--border); }
+  .toolbar .tools { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .toolbar label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text2); margin-right: 6px; cursor: pointer; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .pill-done, .st-승인 { background: var(--accent-light); color: var(--accent-text); }
+  .pill-wait, .st-대기 { background: #FEF3C7; color: #B45309; }
+  .st-반려 { background: #FEE2E2; color: #B91C1C; }
+  .pill-dirty { background: var(--orange-light); color: var(--orange); }
+
+  /* 스케줄표 */
+  .grid-wrap { overflow: auto; max-height: 72vh; }
+  #grid { border-collapse: separate; border-spacing: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
+  #grid th, #grid td { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); text-align: center; white-space: nowrap; background: var(--paper); }
+  #grid td { width: 40px; min-width: 40px; height: 32px; font-weight: 600; }
+  #grid thead th { position: sticky; top: 0; z-index: 2; padding: 8px 0 7px; font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--text3); line-height: 1.35; border-bottom-color: var(--border); }
+  #grid thead th b { display: block; font-family: 'Pretendard', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); }
+  #grid thead th.rest, #grid thead th.rest b { color: var(--danger); }
+  #grid th.name { position: sticky; left: 0; z-index: 1; text-align: left; padding: 0 14px; min-width: 150px; font-size: 13px; font-weight: 700; color: var(--text); }
+  #grid thead th.name { z-index: 3; font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--text3); }
+  #grid th.name small { margin-left: 6px; font-size: 11px; font-weight: 500; color: var(--text3); }
+  #grid tr.team th, #grid tr.team td { height: 36px; border-bottom: 1px solid var(--border); }
+  #grid tr.team th { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--text3); }
+  #grid tr.team th::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 8px; vertical-align: 1px; }
+  #grid tr.team.l24 th::before { background: var(--blue); }
+  #grid tr.mine th.name { box-shadow: inset 2px 0 0 var(--text); background: var(--white); }
+  #grid tr:not(.team):not(.count):hover th, #grid tr:not(.team):not(.count):hover td:not([class]) { background: #ECEEF1; }
+  #grid tr.count th, #grid tr.count td { background: var(--bg); font-family: var(--mono); font-size: 12px; border-bottom-color: var(--border); }
+  #grid tr.count th { font-family: 'Pretendard', sans-serif; font-size: 12px; font-weight: 700; color: var(--text2); }
+  #grid tr.count td.short { background: #FEE2E2; color: #B91C1C; font-weight: 700; }
+  #grid td.off { background: var(--orange-light); color: var(--orange); }
+  #grid td.leave { background: var(--blue-light); color: var(--blue); }
+  #grid td.bday { background: var(--purple-light); color: var(--purple); }
+  #grid td.official { background: var(--accent-light); color: var(--accent-text); }
+  #grid td.gone { background: var(--bg); color: var(--text3); font-weight: 500; }
+  #grid td.pend { box-shadow: inset 0 0 0 2px var(--blue); }
+  #rotGrid { border-collapse: separate; border-spacing: 0; font-size: 13px; }
+  #rotGrid th, #rotGrid td { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); background: var(--paper); padding: 4px; text-align: center; white-space: nowrap; }
+  #rotGrid thead th { position: sticky; top: 0; z-index: 2; font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--text3); padding: 10px 4px; border-bottom-color: var(--border); }
+  #rotGrid th.name { position: sticky; left: 0; z-index: 1; text-align: left; padding: 0 14px; min-width: 150px; font-weight: 700; }
+  #rotGrid thead th.name { z-index: 3; }
+  #rotGrid th.name small { margin-left: 6px; font-size: 11px; font-weight: 500; color: var(--text3); }
+  #rotGrid tr.team th { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--text3); height: 34px; }
+  #rotGrid select { width: 78px; padding: 6px 4px; border: 1.5px solid transparent; border-radius: 8px; background: var(--white); font: 600 13px inherit; font-family: inherit; color: var(--text); cursor: pointer; }
+  #rotGrid select:hover { border-color: var(--border2); }
+  #rotGrid select.none { background: transparent; color: var(--text3); font-weight: 500; }
+  #rotGrid select.changed { border-color: var(--accent); }
+  #rotGrid tr.check th, #rotGrid tr.check td { background: var(--bg); font-size: 11px; font-weight: 600; }
+  #rotGrid td.ok { color: var(--accent-text); }
+  #rotGrid td.bad { color: #B91C1C; background: #FEE2E2; white-space: normal; line-height: 1.4; }
+  body.admin #grid td[data-e]:not(.gone) { cursor: pointer; }
+  body.admin #grid td[data-e]:not(.gone):hover { filter: brightness(.94); }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; font-size: 12px; color: var(--text2); font-weight: 500; }
+  .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 0; background: var(--border2); }
+  .legend .off { background: #FF5017; } .legend .leave { background: #16A0FA; } .legend .bday { background: #8B5CF6; }
+  .legend .official { background: var(--accent); } .legend .gone { background: var(--text3); }
+  .legend .note { margin-left: auto; color: var(--text3); }
+  .empty { text-align: center; padding: 80px 0; color: var(--text3); font-size: 14px; }
+
+  /* 신청 */
+  .req-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 18px 0 20px; border-top: 1px solid var(--text); }
+  .req-form .reason { flex: 1; min-width: 180px; }
+  .quota { display: flex; align-items: baseline; gap: 8px; font-size: 13px; color: var(--text2); margin-bottom: 26px; }
+  .quota b { font-size: 22px; font-weight: 800; letter-spacing: -.03em; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+  .sec-lbl { font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: .04em; color: var(--text3); padding-bottom: 8px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+
+  /* 목록 표 */
+  table.list { width: 100%; border-collapse: collapse; font-size: 13.5px; border-top: 1px solid var(--text); }
+  table.list th { text-align: left; padding: 10px 14px; color: var(--text3); font-size: 12px; font-weight: 500; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  table.list td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; font-weight: 500; }
+  table.list tr:hover td { background: #ECEEF1; }
+  table.list td small { margin-left: 6px; font-size: 12px; color: var(--text3); }
+  table.list td.date { font-family: var(--mono); font-size: 13px; white-space: nowrap; }
+  table.list td.reason { color: var(--text2); }
+  table.list td.act { text-align: right; white-space: nowrap; }
+
+  body:not(.admin) .admin-only { display: none !important; }
+
+  @media (max-width: 720px) {
+    .nav-inner { padding: 0 16px; }
+    .nav-inner .brand { margin-right: 12px; }
+    .nav-tab { padding: 0 10px; }
+    .nav-tab::after { left: 10px; right: 10px; }
+    #who { display: none; }
+    .pg-inner { padding: 20px 16px 48px; }
+    .page-title, .auth-heading { font-size: 30px; }
+    .legend .note { margin-left: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div id="login" class="auth-screen" hidden>
+  <div class="auth-card">
+    <div class="auth-brand"><span class="brand">근무 스케줄<span>.</span></span></div>
+    <div class="hero-meta mono"><span>CS / WORK SCHEDULE</span><span class="js-today"></span></div>
+    <h1 class="auth-heading">로그인<span class="hero-dot">.</span></h1>
+    <p class="auth-lead">회사 이메일로 로그인해 주세요.</p>
+    <form id="loginForm">
+      <div class="field">
+        <label for="email">이메일</label>
+        <input id="email" type="email" class="input input-lg" autocomplete="username" required>
+      </div>
+      <div class="field" style="margin-bottom:18px">
+        <label for="pw">비밀번호 <span class="hint">(6자 이상)</span></label>
+        <div class="pw-wrap">
+          <input id="pw" type="password" class="input input-lg" autocomplete="current-password" minlength="6" required>
+          <button type="button" class="pw-toggle" tabindex="-1">보기</button>
+        </div>
+      </div>
+      <div id="loginMsg" class="alert" hidden></div>
+      <button class="btn btn-lg btn-primary btn-block">로그인</button>
+    </form>
+    <div class="auth-links"><a href="#" id="reset">비밀번호를 잊으셨나요?</a></div>
+    <div class="auth-foot">처음이면 이메일·비밀번호를 입력하고 <a href="#" id="signup">가입하기</a>를 눌러 메일 인증을 해주세요.<br>등록된 직원 이메일만 들어올 수 있어요.</div>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <div class="nav-inner">
+      <span class="brand">근무 스케줄<span>.</span></span>
+      <div class="nav-tabs">
+        <button class="nav-tab" data-tab="sched">스케줄</button>
+        <button class="nav-tab" data-tab="req">휴무 신청</button>
+      </div>
+      <div class="nav-right">
+        <span id="who" class="hint"></span>
+        <button class="btn-admin admin-only" data-tab="admin">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+          어드민<span class="badge-n" id="pendN" hidden></span>
+        </button>
+        <button id="logout" class="btn btn-ghost">로그아웃</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="pg-inner">
+    <div class="hero-meta mono"><span id="kicker">CS / WORK SCHEDULE</span><span class="js-today"></span></div>
+    <div class="page-head">
+      <div>
+        <h1 class="page-title"><span id="monthLabel"></span><span class="hero-dot">.</span></h1>
+        <p class="page-desc" id="pageDesc"></p>
+      </div>
+      <div class="month-nav"><button id="prev" class="btn">← 이전 달</button><button id="next" class="btn">다음 달 →</button></div>
+    </div>
+
+    <section id="sched" class="section">
+      <div class="toolbar">
+        <span id="schedStatus"></span>
+        <div class="tools admin-only">
+          <label><input type="checkbox" id="peak"> 성수기</label>
+          <button id="auto" class="btn">자동 배치</button>
+          <button id="copy" class="btn">시트용 복사</button>
+          <button id="save" class="btn">저장</button>
+          <button id="publish" class="btn btn-primary"></button>
+        </div>
+      </div>
+      <div class="grid-wrap" id="gridWrap"><table id="grid"></table></div>
+      <div class="empty" id="gridEmpty" hidden>아직 확정 전이에요. 최종 스케줄은 매월 25일에 나와요.</div>
+      <div class="legend">
+        <span><i></i>근무</span><span><i class="off"></i>휴일</span><span><i class="leave"></i>연차</span>
+        <span><i class="bday"></i>생일(반차)</span><span><i class="official"></i>공가</span><span><i class="gone"></i>퇴직</span>
+        <span class="note admin-only">칸 클릭 = 근무코드 변경 · 파란 테두리 = 대기중 신청 · 빨간 인원 = 최소 인원 부족</span>
+      </div>
+    </section>
+
+    <section id="req" class="section" hidden>
+      <form id="reqForm" class="req-form">
+        <input type="date" name="date" class="input input-lg" style="width:auto" required>
+        <select name="kind" class="input input-lg" style="width:auto">
+          <option>필요휴무</option><option>연차</option><option>공가</option><option value="생일">생일(반차)</option>
+        </select>
+        <input name="reason" class="input input-lg reason" placeholder="사유 (선택)" maxlength="100">
+        <button class="btn btn-lg btn-primary">신청</button>
+      </form>
+      <div class="quota" id="quota"></div>
+      <div class="sec-lbl">MY REQUESTS</div>
+      <table class="list" id="myReqs"></table>
+    </section>
+
+    <section id="admin" class="section" hidden>
+      <div class="admin-tabs" id="adminTabs">
+        <button class="atab active" data-atab="pReqs">휴무 신청 승인</button>
+        <button class="atab" data-atab="pEmps">담당자 관리</button>
+        <button class="atab" data-atab="pRot">로테이션</button>
+      </div>
+      <div id="pRot" hidden>
+        <div class="toolbar">
+          <button class="btn btn-sm" id="rotPrev" aria-label="이전">←</button>
+          <span class="mono hint" id="rotRange"></span>
+          <button class="btn btn-sm" id="rotNext" aria-label="다음">→</button>
+          <span id="rotStatus"></span>
+          <div class="tools"><button class="btn btn-primary" id="rotSave">저장</button></div>
+        </div>
+        <div class="grid-wrap"><table id="rotGrid"></table></div>
+        <p class="hint" style="margin-top:12px;line-height:1.7">매달 고정으로 쉬는 요일이에요. 로테이션이 있는 사람은 그 요일에 쉬고, 공휴일 수만큼 필요휴무를 쓸 수 있어요.<br>
+          런드리고에서 비워둔 사람은 자동 배치가 주말·공휴일 수만큼 휴일을 나눠 넣어요. ‘점검’ 줄은 로테이션만 봤을 때 최소 인원이 부족한 요일이에요.</p>
+      </div>
+      <div id="pReqs">
+        <div class="filter-bar" id="adminFilter"></div>
+        <table class="list" id="allReqs"></table>
+      </div>
+      <div id="pEmps" hidden>
+        <form id="empForm" class="emp-form">
+          <div class="emp-form-title" id="empFormTitle">담당자 추가</div>
+          <div class="fgrid">
+            <div class="fg"><label>이름</label><input class="input" name="name" required maxlength="30"></div>
+            <div class="fg"><label>회사 이메일</label><input class="input" name="email" type="email" required></div>
+            <div class="fg"><label>팀</label><select class="input" name="team"><option>런드리고</option><option>런드리24</option></select></div>
+            <div class="fg"><label>파트 <span class="hint">(시트 표기)</span></label><input class="input" name="part" required></div>
+            <div class="fg"><label>직책</label><input class="input" name="position" required maxlength="20" placeholder="사원, 팀장 …"></div>
+            <div class="fg"><label>출근시간</label><select class="input" name="shift"><option>10:00</option><option>13:00</option><option>자율</option></select></div>
+            <div class="fg"><label>표시 순서</label><input class="input" name="sort" type="number"></div>
+            <div class="fg"><label>입사일 <span class="hint">(이전은 퇴직 표시)</span></label><input class="input" name="start_date" type="date"></div>
+            <div class="fg"><label>퇴직일 <span class="hint">(다음날부터 퇴직 표시)</span></label><input class="input" name="end_date" type="date"></div>
+            <div class="fg check"><label><input type="checkbox" name="is_admin"> 관리자 권한</label></div>
+          </div>
+          <div class="edit-actions">
+            <button class="btn btn-lg btn-primary">저장</button>
+            <button type="button" class="btn btn-lg" id="empCancel" hidden>취소</button>
+            <span class="hint">추가한 뒤 본인이 로그인 화면에서 ‘가입하기’로 비밀번호를 만들면 돼요.</span>
+          </div>
+        </form>
+        <table class="list" id="empList"></table>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="logic.js"></script>
+<script>
+// 매장 정보 시스템(laundry24-store)과 같은 Supabase 프로젝트 (anon 키는 공개용. 권한은 DB 정책이 막아요)
+const SUPABASE_URL = 'https://ebiepxqkqeyyxewnddov.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImViaWVweHFrcWV5eXhld25kZG92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3NzA3NjIsImV4cCI6MjA5NjM0Njc2Mn0.LF0mgkF1o7_k-6HaI3O0r_DxRGRchq2FWuGVj37W5x8';
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+const CLS = { 휴일: 'off', 연차: 'leave', 생일: 'bday', 공가: 'official', 퇴직: 'gone' };
+const label = m => `${+m.slice(0, 4)}년 ${+m.slice(5)}월`;
+const dayLabel = date => `${date.slice(5, 7)}.${date.slice(8)} ${DOW[new Date(date).getDay()]}`;
+const pageUrl = location.origin + location.pathname;
+
+let me, emps = [], reqs = [], rotations = {}, sched, dirty = false, tab = 'sched';
+let adminReqs = [], adminScheds = {}, adminFilter = '대기';
+let month = fmtMonth(new Date());
+if (new Date().getDate() >= 25) month = addMonth(month, 1); // 25일 이후엔 다음 달 확정본부터
+
+const now = new Date();
+document.querySelectorAll('.js-today').forEach(el => el.textContent =
+  `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')} ` +
+  ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][now.getDay()]);
+
+// ---------- 로그인 ----------
+function loginMsg(t, ok) {
+  const el = $('#loginMsg');
+  el.hidden = !t;
+  el.textContent = t;
+  el.className = 'alert ' + (ok ? 'alert-success' : 'alert-error');
+}
+const creds = () => ({ email: $('#email').value.trim(), password: $('#pw').value });
+$('.pw-toggle').onclick = ev => {
+  const show = $('#pw').type === 'password';
+  $('#pw').type = show ? 'text' : 'password';
+  ev.target.textContent = show ? '숨기기' : '보기';
+};
+
+$('#loginForm').onsubmit = async ev => {
+  ev.preventDefault();
+  const { error } = await sb.auth.signInWithPassword(creds());
+  if (error) return loginMsg(error.message === 'Invalid login credentials' ? '이메일 또는 비밀번호가 맞지 않아요.' : error.message);
+  start();
+};
+$('#signup').onclick = async ev => {
+  ev.preventDefault();
+  if (!$('#loginForm').reportValidity()) return;
+  const { error } = await sb.auth.signUp({ ...creds(), options: { emailRedirectTo: pageUrl } });
+  loginMsg(error ? error.message : '인증 메일을 보냈어요. 메일의 링크를 누른 뒤 로그인하세요.', !error);
+};
+$('#reset').onclick = async ev => {
+  ev.preventDefault();
+  const email = $('#email').value.trim();
+  if (!email) return loginMsg('이메일을 먼저 입력하세요.');
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: pageUrl });
+  loginMsg(error ? error.message : '비밀번호 재설정 메일을 보냈어요. 메일함을 확인해 주세요.', !error);
+};
+sb.auth.onAuthStateChange(ev => {
+  if (ev !== 'PASSWORD_RECOVERY') return;
+  setTimeout(async () => {
+    const password = prompt('새 비밀번호를 입력하세요 (6자 이상)');
+    if (!password) return;
+    const { error } = await sb.auth.updateUser({ password });
+    alert(error ? error.message : '비밀번호가 바뀌었어요.');
+  });
+});
+$('#logout').onclick = async () => { await sb.auth.signOut(); location.reload(); };
+
+async function start() {
+  const { data: { session } } = await sb.auth.getSession();
+  $('#login').hidden = !!session;
+  $('#app').hidden = !session;
+  if (!session) return;
+  const { data } = await sb.from('ws_employees').select('*').order('sort').order('id');
+  emps = data || [];
+  me = emps.find(e => e.email.toLowerCase() === session.user.email.toLowerCase());
+  if (!me) {
+    await sb.auth.signOut();
+    $('#login').hidden = false; $('#app').hidden = true;
+    return loginMsg('등록된 직원 이메일이 아니에요. 팀장님께 등록을 요청하세요.');
+  }
+  document.body.classList.toggle('admin', me.is_admin);
+  $('#who').textContent = `${me.name} · ${me.team}`;
+  await load();
+  showTab('sched');
+  if (me.is_admin) loadAdmin();
+}
+
+// ---------- 공통 ----------
+function showTab(t) {
+  tab = t;
+  for (const s of ['sched', 'req', 'admin']) $('#' + s).hidden = s !== t;
+  document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+  $('#kicker').textContent = { sched: 'CS / WORK SCHEDULE', req: 'CS / DAY-OFF REQUEST', admin: 'CS / ADMIN' }[t];
+  $('.month-nav').hidden = t === 'admin';
+  if (t === 'admin') loadAdmin();
+  renderHead();
+}
+document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+
+function renderHead() {
+  if (!sched) return;
+  const deadline = `${+addMonth(month, -1).slice(5)}월 20일`;
+  $('#monthLabel').textContent = tab === 'admin' ? '어드민' : label(month) + (tab === 'sched' ? ' 스케줄' : ' 휴무 신청');
+  $('#pageDesc').innerHTML = tab === 'sched' ? '공가·연차·필요휴무는 전달 <b>20일</b>까지 신청, 최종 스케줄은 <b>25일</b>에 확정돼요.'
+    : tab === 'req' ? (canRequest(month) ? `이번 신청 마감은 <b>${deadline}</b>이에요.` : `${deadline}에 신청이 마감됐어요.`)
+    : `대기 중인 신청 <b>${adminReqs.filter(r => r.status === '대기').length}건</b> · 승인하면 해당 달 스케줄에 바로 들어가요.`;
+}
+
+function go(k) {
+  if (dirty && !confirm('저장하지 않은 변경이 있어요. 버리고 이동할까요?')) return;
+  month = addMonth(month, k);
+  load();
+}
+$('#prev').onclick = () => go(-1);
+$('#next').onclick = () => go(1);
+addEventListener('beforeunload', e => { if (dirty) e.preventDefault(); });
+
+async function load() {
+  const [s, ro] = await Promise.all([
+    sb.from('ws_schedules').select('*').eq('month', month).maybeSingle(),
+    sb.from('ws_rotations').select('*').eq('month', month),
+  ]);
+  sched = s.data || { month, cells: {}, peak: false, published: false };
+  rotations = Object.fromEntries((ro.data || []).map(r => [r.employee_id, r.days]));
+  dirty = false;
+  await loadReqs();
+}
+async function loadReqs() {
+  const { data } = await sb.from('ws_requests').select('*')
+    .gte('date', month + '-01').lte('date', ymd(month, daysIn(month))).order('date');
+  reqs = data || [];
+  renderHead(); renderGrid(); renderReq();
+}
+
+// ---------- 스케줄표 ----------
+function renderGrid() {
+  const hide = !sched.published && !me.is_admin;
+  $('#schedStatus').innerHTML = (sched.published ? '<span class="pill pill-done">확정 · 공개 중</span>'
+    : `<span class="pill pill-wait">${me.is_admin ? '초안 · 직원에게 안 보여요' : '확정 전'}</span>`)
+    + (dirty ? ' <span class="pill pill-dirty">저장 안 됨</span>' : '');
+  $('#gridWrap').hidden = hide;
+  $('#gridEmpty').hidden = !hide;
+  $('#peak').checked = sched.peak;
+  $('#publish').textContent = sched.published ? '확정 취소' : '확정 · 공개';
+  if (hide) return;
+
+  const cells = sched.cells, days = Array.from({ length: daysIn(month) }, (_, i) => i + 1);
+  const pend = {};
+  for (const r of reqs) if (r.status === '대기') pend[r.employee_id + '-' + +r.date.slice(8)] = r.kind;
+
+  let h = '<thead><tr><th class="name">NAME</th>' + days.map(d =>
+    `<th class="${isRest(month, d) ? 'rest' : ''}" title="${HOLIDAYS[ymd(month, d)] || ''}"><b>${d}</b>${DOW[dow(month, d)]}</th>`).join('') + '</tr></thead><tbody>';
+  for (const t of TEAMS) {
+    const list = emps.filter(e => e.team === t);
+    if (!list.length) continue;
+    h += `<tr class="team${t === '런드리24' ? ' l24' : ''}"><th class="name">${t}</th><td colspan="${days.length}"></td></tr>`;
+    for (const e of list) {
+      h += `<tr class="${e.id === me.id ? 'mine' : ''}"><th class="name">${esc(e.name)}<small>${esc(e.position)} · ${esc(e.shift)}</small></th>`;
+      for (const d of days) {
+        const c = cellOf(e, month, d, cells), p = pend[e.id + '-' + d];
+        h += `<td data-e="${e.id}" data-d="${d}"${CLS[c] || p ? ` class="${CLS[c] || ''}${p ? ' pend' : ''}"` : ''}${p ? ` title="신청: ${p}"` : ''}>${c}</td>`;
+      }
+      h += '</tr>';
+    }
+    h += `<tr class="count"><th class="name">${t === '런드리24' ? '근무 인원 (오전/오후)' : '근무 인원'}</th>` + days.map(d => {
+      const c = dayCount(emps, t, month, d, cells);
+      return `<td class="${isShort(t, month, d, c, sched.peak) ? 'short' : ''}" title="오전 ${c.am} · 오후 ${c.pm}">${t === '런드리24' ? c.am + '/' + c.pm : c.total}</td>`;
+    }).join('') + '</tr>';
+  }
+  $('#grid').innerHTML = h + '</tbody>';
+}
+
+$('#grid').onclick = ev => {
+  const td = ev.target.closest('td[data-e]');
+  if (!me.is_admin || !td || td.classList.contains('gone')) return;
+  const { e, d } = td.dataset, row = sched.cells[e] ||= {};
+  const next = CODES[(CODES.indexOf(row[d] || '') + 1) % CODES.length];
+  if (next) row[d] = next; else delete row[d];
+  dirty = true;
+  renderGrid();
+};
+$('#peak').onchange = () => { sched.peak = $('#peak').checked; dirty = true; renderGrid(); };
+$('#auto').onclick = () => {
+  const noRot = emps.filter(e => e.team === '런드리24' && !rotations[e.id] && active(e, ymd(month, daysIn(month)))).map(e => e.name);
+  if (noRot.length && !confirm(`로테이션이 없는 런드리24 직원: ${noRot.join(', ')}\n그래도 진행할까요?`)) return;
+  if (!confirm('승인된 신청과 로테이션으로 다시 배치할까요?\n지금 표 내용은 덮어써요.')) return;
+  sched.cells = autoSchedule(emps, month, reqs.filter(r => r.status === '승인'), rotations, sched.peak);
+  dirty = true;
+  renderGrid();
+};
+async function saveSched() {
+  const { error } = await sb.from('ws_schedules')
+    .upsert({ month, cells: sched.cells, peak: sched.peak, published: sched.published, updated_at: new Date().toISOString() });
+  if (error) { alert('저장 실패: ' + error.message); return false; }
+  dirty = false;
+  renderGrid();
+  return true;
+}
+$('#save').onclick = saveSched;
+$('#publish').onclick = async () => {
+  if (!sched.published && !confirm(`${label(month)} 스케줄을 확정하고 직원에게 공개할까요?`)) return;
+  sched.published = !sched.published;
+  if (!await saveSched()) sched.published = !sched.published;
+};
+$('#copy').onclick = async () => {
+  await navigator.clipboard.writeText(toTSV(emps, month, sched.cells));
+  alert('복사했어요.\n구글시트에서 첫 직원 줄의 "파트" 칸을 선택하고 붙여넣으세요.');
+};
+
+// ---------- 휴무 신청 ----------
+function renderReq() {
+  const open = canRequest(month), mine = reqs.filter(r => r.employee_id === me.id);
+  const used = mine.filter(r => r.kind === '필요휴무' && r.status !== '반려').length, lim = offLimit(me, month, rotations);
+  $('#reqForm').hidden = !open;
+  $('#reqForm').date.min = month + '-01';
+  $('#reqForm').date.max = ymd(month, daysIn(month));
+  $('#quota').innerHTML = `필요휴무 <b>${used} / ${lim}</b>일 <span class="hint">` +
+    (onRotation(me, rotations) ? '이번 달 공휴일 수만큼 쓸 수 있어요' : '이번 달 주말·공휴일 수') + '</span>';
+  $('#myReqs').innerHTML = mine.length
+    ? '<thead><tr><th>날짜</th><th>종류</th><th>사유</th><th>상태</th><th></th></tr></thead><tbody>' + mine.map(r =>
+      `<tr><td class="date">${dayLabel(r.date)}</td><td>${r.kind}</td><td class="reason">${esc(r.reason)}</td>
+       <td><span class="pill st-${r.status}">${r.status}</span></td>
+       <td class="act">${r.status === '대기' && open ? `<button class="btn btn-sm" data-cancel="${r.id}">취소</button>` : ''}</td></tr>`).join('') + '</tbody>'
+    : '<tbody><tr><td class="empty">이번 달 신청 내역이 없어요.</td></tr></tbody>';
+}
+$('#reqForm').onsubmit = async ev => {
+  ev.preventDefault();
+  const f = ev.target, kind = f.kind.value;
+  const used = reqs.filter(r => r.employee_id === me.id && r.kind === '필요휴무' && r.status !== '반려').length;
+  const lim = offLimit(me, month, rotations);
+  if (kind === '필요휴무' && used >= lim) return alert(`필요휴무는 이번 달 ${lim}일까지 신청할 수 있어요.`);
+  const { error } = await sb.from('ws_requests').insert({ employee_id: me.id, date: f.date.value, kind, reason: f.reason.value.trim() });
+  if (error) return alert(error.code === '23505' ? '그 날짜엔 이미 신청이 있어요.' : '신청 실패: ' + error.message);
+  f.reset();
+  loadReqs();
+};
+$('#myReqs').onclick = async ev => {
+  const id = ev.target.dataset.cancel;
+  if (!id || !confirm('신청을 취소할까요?')) return;
+  const { error } = await sb.from('ws_requests').delete().eq('id', id);
+  if (error) return alert(error.message);
+  loadReqs();
+};
+
+// ---------- 어드민: 휴무 신청 승인 (달 구분 없이, 대기 전부 + 지난달부터 처리 내역) ----------
+async function loadAdmin() {
+  const from = addMonth(fmtMonth(new Date()), -1) + '-01';
+  const { data } = await sb.from('ws_requests').select('*').or(`status.eq.대기,date.gte.${from}`).order('date');
+  adminReqs = data || [];
+  const months = [...new Set(adminReqs.map(r => r.date.slice(0, 7)))];
+  const { data: ss } = months.length ? await sb.from('ws_schedules').select('*').in('month', months) : { data: [] };
+  adminScheds = Object.fromEntries((ss || []).map(s => [s.month, s]));
+  renderAdmin();
+}
+// 편집 중인 달은 화면의 표(sched)를 기준으로
+const schedOf = m => m === month ? sched : (adminScheds[m] ||= { month: m, cells: {}, peak: false, published: false });
+
+function renderAdmin() {
+  const n = adminReqs.filter(r => r.status === '대기').length;
+  $('#pendN').hidden = !n;
+  $('#pendN').textContent = n;
+  renderHead();
+  $('#adminFilter').innerHTML = ['대기', '승인', '반려', '전체'].map(s =>
+    `<button class="chip${s === adminFilter ? ' on' : ''}" data-f="${s}">${s}<span class="chip-n">${s === '전체' ? adminReqs.length : adminReqs.filter(r => r.status === s).length}</span></button>`).join('');
+  const byId = Object.fromEntries(emps.map(e => [e.id, e]));
+  const list = adminReqs.filter(r => adminFilter === '전체' || r.status === adminFilter);
+  $('#allReqs').innerHTML = list.length
+    ? '<thead><tr><th>날짜</th><th>이름</th><th>종류</th><th>사유</th><th>그날 근무</th><th>신청일</th><th></th></tr></thead><tbody>' + list.map(r => {
+      const e = byId[r.employee_id] || {}, m = r.date.slice(0, 7), c = dayCount(emps, e.team, m, +r.date.slice(8), schedOf(m).cells);
+      return `<tr><td class="date">${r.date.slice(2, 4)}.${dayLabel(r.date)}</td><td>${esc(e.name)}<small>${esc(e.team)}</small></td><td>${r.kind}</td><td class="reason">${esc(r.reason)}</td>
+        <td>${e.team === '런드리24' ? `오전 ${c.am} · 오후 ${c.pm}` : c.total + '명'}</td>
+        <td class="date hint">${r.created_at ? r.created_at.slice(5, 10).replace('-', '.') : ''}</td>
+        <td class="act">${r.status === '대기' ? `<button class="btn btn-sm btn-primary" data-ok="${r.id}">승인</button> <button class="btn btn-sm" data-no="${r.id}">반려</button>` : `<span class="pill st-${r.status}">${r.status}</span>`}</td></tr>`;
+    }).join('') + '</tbody>'
+    : `<tbody><tr><td class="empty">${adminFilter === '대기' ? '대기 중인 신청이 없어요.' : '신청이 없어요.'}</td></tr></tbody>`;
+}
+$('#adminFilter').onclick = ev => {
+  const f = ev.target.closest('[data-f]')?.dataset.f;
+  if (f) { adminFilter = f; renderAdmin(); }
+};
+$('#allReqs').onclick = async ev => {
+  const { ok, no } = ev.target.dataset;
+  if (!ok && !no) return;
+  const r = adminReqs.find(x => x.id == (ok || no)), e = emps.find(x => x.id === r.employee_id);
+  if (no && !confirm(`${e?.name}님의 ${dayLabel(r.date)} ${r.kind} 신청을 반려할까요?`)) return;
+  const { error } = await sb.from('ws_requests').update({ status: ok ? '승인' : '반려' }).eq('id', r.id);
+  if (error) return alert(error.message);
+  if (ok) {
+    const m = r.date.slice(0, 7), s = schedOf(m);
+    (s.cells[r.employee_id] ||= {})[+r.date.slice(8)] = r.kind === '필요휴무' ? '휴일' : r.kind;
+    if (m === month) await saveSched();
+    else {
+      const { error: err } = await sb.from('ws_schedules').upsert({ ...s, month: m, updated_at: new Date().toISOString() });
+      if (err) alert('스케줄 반영 실패: ' + err.message);
+    }
+  }
+  await loadAdmin();
+  loadReqs();
+};
+
+$('#adminTabs').onclick = ev => {
+  const t = ev.target.closest('[data-atab]')?.dataset.atab;
+  if (!t) return;
+  document.querySelectorAll('.atab').forEach(b => b.classList.toggle('active', b.dataset.atab === t));
+  $('#pReqs').hidden = t !== 'pReqs';
+  $('#pEmps').hidden = t !== 'pEmps';
+  $('#pRot').hidden = t !== 'pRot';
+  if (t === 'pEmps') { fillEmp(null); renderEmps(); }
+  if (t === 'pRot') loadRot();
+};
+
+// ---------- 어드민: 로테이션 (12개월 표) ----------
+const PAIRS = ['일·월', '월·화', '화·수', '수·목', '목·금', '금·토', '토·일'];
+let rotStart = fmtMonth(new Date()), rotData = {}, rotEdit = {};
+const rotMonths = () => Array.from({ length: 12 }, (_, i) => addMonth(rotStart, i));
+const rotVal = (id, m) => rotEdit[id + '|' + m] ?? rotData[id + '|' + m] ?? '';
+
+async function loadRot() {
+  if (Object.keys(rotEdit).length && !confirm('저장하지 않은 로테이션 변경이 있어요. 버릴까요?')) return false;
+  const { data, error } = await sb.from('ws_rotations').select('*').in('month', rotMonths());
+  if (error) return alert(error.message);
+  rotData = Object.fromEntries((data || []).map(r => [r.employee_id + '|' + r.month, r.days]));
+  rotEdit = {};
+  renderRot();
+}
+function renderRot() {
+  const months = rotMonths(), n = Object.keys(rotEdit).length;
+  $('#rotRange').textContent = `${months[0].replace('-', '.')} — ${months[11].replace('-', '.')}`;
+  $('#rotStatus').innerHTML = n ? `<span class="pill pill-dirty">저장 안 됨 ${n}칸</span>` : '';
+  let h = '<thead><tr><th class="name">NAME</th>' + months.map(m => `<th>${m.slice(2).replace('-', '.')}</th>`).join('') + '</tr></thead><tbody>';
+  for (const t of TEAMS) {
+    const list = emps.filter(e => e.team === t && (!e.end_date || e.end_date >= months[0] + '-01'));
+    if (!list.length) continue;
+    h += `<tr class="team"><th class="name">${t}</th><td colspan="12"></td></tr>`;
+    for (const e of list) {
+      h += `<tr><th class="name">${esc(e.name)}<small>${esc(e.shift)}</small></th>` + months.map(m => {
+        const k = e.id + '|' + m, v = rotVal(e.id, m), opts = PAIRS.includes(v) || !v ? PAIRS : [v, ...PAIRS];
+        return `<td><select data-k="${k}" class="${v ? '' : 'none'}${k in rotEdit ? ' changed' : ''}">
+          <option value="">${t === '런드리고' ? '자동' : '—'}</option>${opts.map(p => `<option${p === v ? ' selected' : ''}>${p}</option>`).join('')}</select></td>`;
+      }).join('') + '</tr>';
+    }
+    h += '<tr class="check"><th class="name">점검</th>' + months.map(m => {
+      const gaps = rotationGaps(list, t, m, Object.fromEntries(list.map(e => [e.id, rotVal(e.id, m)])));
+      return gaps.length ? `<td class="bad">${gaps.join('<br>')}</td>` : '<td class="ok">✓</td>';
+    }).join('') + '</tr>';
+  }
+  $('#rotGrid').innerHTML = h + '</tbody>';
+}
+$('#rotGrid').onchange = ev => {
+  const k = ev.target.dataset.k;
+  if (!k) return;
+  if (ev.target.value === (rotData[k] ?? '')) delete rotEdit[k]; else rotEdit[k] = ev.target.value;
+  renderRot();
+};
+$('#rotPrev').onclick = async () => { const s = rotStart; rotStart = addMonth(rotStart, -3); if (await loadRot() === false) rotStart = s; };
+$('#rotNext').onclick = async () => { const s = rotStart; rotStart = addMonth(rotStart, 3); if (await loadRot() === false) rotStart = s; };
+$('#rotSave').onclick = async () => {
+  const ups = [], dels = [];
+  for (const [k, v] of Object.entries(rotEdit)) {
+    const [id, m] = k.split('|');
+    v ? ups.push({ employee_id: +id, month: m, days: v }) : dels.push([+id, m]);
+  }
+  if (ups.length) {
+    const { error } = await sb.from('ws_rotations').upsert(ups);
+    if (error) return alert('저장 실패: ' + error.message);
+  }
+  for (const [id, m] of dels) {
+    const { error } = await sb.from('ws_rotations').delete().eq('employee_id', id).eq('month', m);
+    if (error) return alert('삭제 실패: ' + error.message);
+  }
+  rotEdit = {};
+  await loadRot();
+  const { data } = await sb.from('ws_rotations').select('*').eq('month', month);
+  rotations = Object.fromEntries((data || []).map(r => [r.employee_id, r.days]));
+  renderReq();
+};
+
+// ---------- 어드민: 담당자 관리 ----------
+const EF = ['name', 'email', 'team', 'part', 'position', 'shift', 'sort', 'start_date', 'end_date'];
+const ef = k => $('#empForm').elements[k];
+let editingEmp = null;
+
+function renderEmps() {
+  const today = new Date().toLocaleDateString('sv'); // YYYY-MM-DD
+  const rows = TEAMS.flatMap(t => emps.filter(e => e.team === t));
+  $('#empList').innerHTML = '<thead><tr><th>이름</th><th>이메일</th><th>팀</th><th>직책 · 출근</th><th>재직 기간</th><th></th></tr></thead><tbody>' +
+    rows.map(e => `<tr class="${e.end_date && e.end_date < today ? 'retired' : ''}">
+      <td>${esc(e.name)}${e.is_admin ? ' <span class="pill pill-done">관리자</span>' : ''}</td>
+      <td class="reason">${esc(e.email)}</td><td>${e.team}</td><td>${esc(e.position)} · ${esc(e.shift)}</td>
+      <td class="date">${e.start_date || ''} ~ ${e.end_date || ''}</td>
+      <td class="act"><button class="btn btn-sm" data-edit="${e.id}">수정</button> <button class="btn btn-sm btn-danger-ghost" data-del="${e.id}">삭제</button></td></tr>`).join('') + '</tbody>';
+}
+
+function fillEmp(e) {
+  editingEmp = e;
+  const d = e || { team: '런드리고', part: '런드리고 / 고객문의', position: '사원', shift: '10:00',
+    sort: Math.max(0, ...emps.map(x => x.sort || 0)) + 1 };
+  for (const k of EF) ef(k).value = d[k] ?? '';
+  ef('is_admin').checked = !!d.is_admin;
+  $('#empFormTitle').textContent = e ? `${e.name} 수정` : '담당자 추가';
+  $('#empCancel').hidden = !e;
+}
+ef('team').onchange = () => {
+  if (!ef('part').value || /고객문의$/.test(ef('part').value)) ef('part').value = ef('team').value + ' / 고객문의';
+};
+$('#empCancel').onclick = () => fillEmp(null);
+
+async function reloadEmps() {
+  const { data } = await sb.from('ws_employees').select('*').order('sort').order('id');
+  emps = data || [];
+  me = emps.find(e => e.id === me.id) || me;
+  renderEmps();
+  renderGrid();
+}
+
+$('#empForm').onsubmit = async ev => {
+  ev.preventDefault();
+  const row = {};
+  for (const k of EF) { const v = ef(k).value.trim(); row[k] = v === '' ? null : v; }
+  row.email = row.email.toLowerCase();
+  row.sort = +row.sort || 0;
+  row.is_admin = ef('is_admin').checked;
+  if (row.start_date && row.end_date && row.end_date < row.start_date) return alert('퇴직일이 입사일보다 빨라요.');
+  if (editingEmp?.id === me.id && !row.is_admin) return alert('본인의 관리자 권한은 뺄 수 없어요.');
+  const { error } = editingEmp
+    ? await sb.from('ws_employees').update(row).eq('id', editingEmp.id)
+    : await sb.from('ws_employees').insert(row);
+  if (error) return alert(error.code === '23505' ? '이미 등록된 이메일이에요.' : '저장 실패: ' + error.message);
+  fillEmp(null);
+  reloadEmps();
+};
+
+$('#empList').onclick = async ev => {
+  const { edit, del } = ev.target.dataset;
+  const e = emps.find(x => x.id == (edit || del));
+  if (!e) return;
+  if (edit) { fillEmp(e); return $('#empForm').scrollIntoView({ behavior: 'smooth' }); }
+  if (e.id === me.id) return alert('본인은 삭제할 수 없어요.');
+  if (!confirm(`${e.name}님을 삭제할까요?\n\n신청 내역도 함께 지워지고 되돌릴 수 없어요.\n퇴사자는 삭제 대신 ‘퇴직일’을 넣으면 지난 스케줄에 그대로 남아요.`)) return;
+  const { error } = await sb.from('ws_employees').delete().eq('id', e.id);
+  if (error) return alert('삭제 실패: ' + error.message);
+  if (editingEmp?.id === e.id) fillEmp(null);
+  reloadEmps();
+};
+
+start();
+</script>
+</body>
+</html>
