@@ -55,6 +55,10 @@
   .pw-wrap .input { padding-right: 56px; }
   .pw-toggle { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); border: none; background: none; color: var(--text3); font: 600 12px inherit; font-family: inherit; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
   .pw-toggle:hover { color: var(--text); background: var(--bg); }
+  /* 입력 검증 말풍선 (브라우저 기본 말풍선 대신) */
+  .vtip { position: absolute; z-index: 1000; max-width: 280px; padding: 8px 12px; border-radius: 8px; background: var(--text); color: #fff; font-size: 12px; font-weight: 600; line-height: 1.4; box-shadow: 0 8px 24px rgba(16,24,40,.18); pointer-events: none; animation: fadeUp .18s var(--ease-out); }
+  .vtip::before { content: ''; position: absolute; top: -5px; left: 16px; border: 5px solid transparent; border-top: 0; border-bottom-color: var(--text); }
+  .input.invalid, .input.invalid:focus { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(224,62,62,.1); }
   .alert { font-size: 13px; border-radius: 8px; padding: 9px 12px; margin-bottom: 14px; line-height: 1.5; border: 1px solid; }
   .alert-error { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
   .alert-success { color: var(--accent-text); background: var(--accent-light); border-color: rgba(11,195,144,.35); }
@@ -452,13 +456,14 @@
         </svg>
         오류/문의 보내기
       </a>
-      <span class="site-footer-version">v2026.09.30</span>
+      <span class="site-footer-version">v2026.09.30.2</span>
     </div>
   </footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="logic.js"></script>
+<!-- ?v= 는 배포마다 올리기 (GitHub Pages가 10분 캐시해서 예전 logic.js와 섞이는 것 방지). 푸터 버전과 같이 -->
+<script src="logic.js?v=2026.09.30.2"></script>
 <script>
 // 매장 정보 시스템(laundry24-store)과 같은 Supabase 프로젝트 (anon 키는 공개용. 권한은 DB 정책이 막아요)
 const SUPABASE_URL = 'https://ebiepxqkqeyyxewnddov.supabase.co';
@@ -481,6 +486,36 @@ const now = new Date();
 document.querySelectorAll('.js-today').forEach(el => el.textContent =
   `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')} ` +
   ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][now.getDay()]);
+
+// ---------- 입력 검증 말풍선: 브라우저 기본 말풍선 대신 사이트 스타일, 첫 번째 칸에만 ----------
+const vtip = Object.assign(document.createElement('div'), { className: 'vtip', hidden: true });
+document.body.append(vtip);
+function validMsg(el) {
+  const v = el.validity;
+  if (v.valueMissing) return el.type === 'date' ? '날짜를 선택해 주세요' : el.type === 'email' ? '이메일을 입력해 주세요' : '입력해 주세요';
+  if (v.typeMismatch && el.type === 'email') return '이메일 형식이 아니에요 (예: name@lifegoeson.kr)';
+  if (v.tooShort) return `${el.minLength}자 이상 입력해 주세요 (지금 ${el.value.length}자)`;
+  if (v.rangeUnderflow || v.rangeOverflow) return '이 달 안의 날짜를 골라 주세요';
+  return el.validationMessage;
+}
+let tipBusy = false;
+addEventListener('invalid', ev => {
+  ev.preventDefault();
+  if (tipBusy) return;                       // 한 번 제출에 invalid가 칸마다 오니 첫 칸만
+  tipBusy = true;
+  setTimeout(() => tipBusy = false);
+  const el = ev.target, r = el.getBoundingClientRect();
+  el.form?.querySelectorAll('.alert').forEach(a => a.hidden = true);   // 이전 오류 박스와 겹치지 않게
+  vtip.textContent = validMsg(el);
+  vtip.style.left = r.left + scrollX + 'px';
+  vtip.style.top = r.bottom + scrollY + 8 + 'px';
+  vtip.hidden = false;
+  el.classList.add('invalid');
+  el.focus();
+  const hide = () => { vtip.hidden = true; el.classList.remove('invalid'); };
+  el.addEventListener('input', hide, { once: true });
+  el.addEventListener('blur', hide, { once: true });
+}, true);
 
 // ---------- 로그인 ----------
 function loginMsg(t, ok) {
