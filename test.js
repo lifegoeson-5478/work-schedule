@@ -79,6 +79,26 @@ assert.deepEqual(L.rotationGaps(emps, '런드리24', M, { 10: '금·토', 11: '�
   assert.equal(dec[12][2], '휴일');
 }
 
+// 연속 근무 5일까지 (지난달 월말부터 이어서)
+{
+  const p = emps.find(e => e.id === 10);
+  // 10월 말 27~31 근무(5일) + 11/1 근무면 6일
+  const oct = { 10: { 26: '휴일' } };
+  assert.equal(L.workRun(p, '2026-11', 1, { 10: {} }, { prev: oct }), 5 + 1 + 29);   // 11월이 전부 근무면 10/27~11/30
+  assert.equal(L.workRun(p, '2026-11', 1, { 10: { 2: '휴일' } }, { prev: oct }), 6);  // 10/27~11/1
+  assert.equal(L.workRun(p, '2026-11', 1, { 10: { 2: '휴일' } }), 1);               // 지난달 모르면 11/1부터
+  // 로테이션 일·월 → 금·토 로 바뀌면 10/27(화)~11/5(목) 10일 연속이 생김 → 보정
+  for (let run = 0; run < 30; run++) {
+    const r10 = { ...rot, 10: '일·월' }, r11 = { ...rot, 10: '금·토' };
+    const o = L.autoSchedule(emps, '2026-10', [], r10, false);
+    const nv = L.autoSchedule(emps, '2026-11', [], r11, false, { prev: o });
+    assert.deepEqual(L.runIssues(emps, '2026-10', o), [], '10월 연속 6일');
+    assert.deepEqual(L.runIssues(emps, '2026-11', nv, { prev: o }), [], '11월 연속 6일 (월 경계)');
+    assert.deepEqual(L.weekIssues(emps, '2026-11', nv, { prev: o }), [], '11월 주 5일');
+    for (const e of emps) assert.ok(Object.values(nv[e.id]).filter(c => c === '휴일').length <= L.restQuota(e, '2026-11') + 1, `${e.id} 휴일 과다`);
+  }
+}
+
 // 연차 위험한 날
 {
   const go1 = emps[1], am = emps[9], pm = emps[11];

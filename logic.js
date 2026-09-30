@@ -104,9 +104,45 @@ function weekIssues(emps, month, cells, adj = {}) {
   return out;
 }
 
-// 승인된 신청 → 로테이션(팀 무관) → 주 5일 보정 → 로테이션 없는 런드리고는 남은 휴일을 인원 여유가 큰 날부터 배정
+// ---------- 연속 근무 5일까지 (6일부터 안 됨). 지난달 월말부터 이어서 셈, 다음 달은 모름 ----------
+// d를 근무로 쳤을 때 d를 포함해 이어지는 연속 근무일 수
+function workRun(e, month, d, cells, adj = {}) {
+  const pm = addMonth(month, -1), pn = daysIn(pm), n = daysIn(month);
+  const w = x => x >= 1 ? worksOn(cellOf(e, month, x, cells)) : !!adj.prev && x > -pn && worksOn(cellOf(e, pm, pn + x, adj.prev));
+  let run = 1;
+  for (let x = d - 1; w(x); x--) run++;
+  for (let x = d + 1; x <= n && w(x); x++) run++;
+  return run;
+}
+// 연속 6일 이상 근무 구간 → [{ id, work: 전체 연속일(지난달 포함), days: 이번 달 일자들 }]
+function runIssues(emps, month, cells, adj = {}) {
+  const out = [], n = daysIn(month);
+  for (const e of emps) for (let d = 1; d <= n;) {
+    if (!worksOn(cellOf(e, month, d, cells))) { d++; continue; }
+    let end = d;
+    while (end < n && worksOn(cellOf(e, month, end + 1, cells))) end++;
+    const work = workRun(e, month, d, cells, adj);
+    if (work > 5) out.push({ id: e.id, work, days: Array.from({ length: end - d + 1 }, (_, i) => d + i) });
+    d = end + 1;
+  }
+  return out;
+}
+
+// 승인된 신청 → 로테이션(팀 무관) → 주 5일·연속 5일 보정 → 로테이션 없는 런드리고는 남은 휴일을 인원 여유가 큰 날부터 배정
 // adj = { prev }: 지난달 cells (월초 주 5일 계산용)
-function autoSchedule(emps, month, approved, rotations, peak, adj = {}) {
+// ponytail: 무작위가 섞인 배치를 여러 번 해서 인원 부족한 날이 가장 적은 결과를 고름 (빠듯한 인원에서 효과 큼)
+function autoSchedule(emps, month, approved, rotations, peak, adj = {}, tries = 20) {
+  const teams = TEAMS.filter(t => emps.some(e => e.team === t));
+  let best, bestShort = Infinity;
+  for (let i = 0; i < tries && bestShort > 0; i++) {
+    const c = autoScheduleOnce(emps, month, approved, rotations, peak, adj);
+    let short = 0;
+    for (let d = 1; d <= daysIn(month); d++) for (const t of teams) if (isShort(t, month, d, dayCount(emps, t, month, d, c), peak)) short++;
+    if (short < bestShort) [best, bestShort] = [c, short];
+  }
+  return best;
+}
+function autoScheduleOnce(emps, month, approved, rotations, peak, adj = {}) {
   const n = daysIn(month), cells = {};
   const on = (e, d) => active(e, ymd(month, d));
   for (const e of emps) cells[e.id] = {};
@@ -137,20 +173,39 @@ function autoSchedule(emps, month, approved, rotations, peak, adj = {}) {
     }
   }
 
-  // 로테이션 휴일이 기본 휴무(주말+공휴일)보다 많으면 넘치는 만큼 근무로 되돌림.
-  // 주 5일(지난달 월말 포함)을 안 넘는 날 중 인원이 가장 모자란 날부터. 승인된 신청은 안 건드림
-  const fixed = new Set(approved.map(r => r.employee_id + '-' + +r.date.slice(8)));
-  for (const e of emps.filter(x => rotations[x.id])) {
-    let extra = Object.values(cells[e.id]).filter(c => c === '휴일').length - restQuota(e, month);
-    while (extra > 0) {
-      const cand = [];
-      for (let d = 1; d <= n; d++)
-        if (cells[e.id][d] === '휴일' && !fixed.has(e.id + '-' + d) && weekWork(e, weekOfDay(d), month, cells, adj) < 5) cand.push(d);
-      if (!cand.length) break;
-      delete cells[e.id][cand.reduce((a, b) => surplus(e, b) < surplus(e, a) ? b : a)];
-      extra--;
+  // 연속 근무 6일 이상 구간이 있으면 그 안에 휴일 하나 (양쪽이 5일 이하가 되는 날 중 여유 큰 날, 없으면 5일째 다음 날)
+  function breakRuns(e) {
+    for (let guard = 0; guard < n; guard++) {
+      const iss = runIssues([e], month, cells, adj)[0];
+      if (!iss) return;
+      const s = iss.days[0], t = iss.days.at(-1), before = iss.work - (t - s + 1);  // 지난달에서 이어온 일수
+      const free = iss.days.filter(p => on(e, p) && !cells[e.id][p]);
+      const split = free.filter(p => before + (p - s) <= 5 && t - p <= 5);
+      // 쉬어도 최소 인원이 남는 날 우선 (연속 근무 규칙이 인원보다 우선이라 없으면 그래도 끊음)
+      const safe = split.filter(p => surplus(e, p) > (e.team === '런드리고' ? minGo(month, p, peak) - target(p) : 0));
+      const pool = safe.length ? safe : split;
+      const pick = pool.length ? pool.reduce((a, b) => surplus(e, b) > surplus(e, a) ? b : a)
+        : free.filter(p => before + (p - s) <= 5).pop() ?? free[0];
+      if (pick === undefined) return;
+      cells[e.id][pick] = '휴일';
     }
   }
+  // 휴일을 근무로 되돌려도 되는 날: 신청 아님 · 주 5일 · 연속 5일 안 넘음
+  const fixed = new Set(approved.map(r => r.employee_id + '-' + +r.date.slice(8)));
+  const canWork = (e, d) => cells[e.id][d] === '휴일' && !fixed.has(e.id + '-' + d)
+    && weekWork(e, weekOfDay(d), month, cells, adj) < 5 && workRun(e, month, d, cells, adj) <= 5;
+  // 휴일이 기본 휴무(주말+공휴일)보다 많으면 넘치는 만큼, 인원 가장 모자란 날부터 근무로
+  function trimToQuota(e) {
+    for (let extra = Object.values(cells[e.id]).filter(c => c === '휴일').length - restQuota(e, month); extra > 0; extra--) {
+      const cand = [];
+      for (let d = 1; d <= n; d++) if (canWork(e, d)) cand.push(d);
+      if (!cand.length) return;
+      delete cells[e.id][cand.reduce((a, b) => surplus(e, b) < surplus(e, a) ? b : a)];
+    }
+  }
+  // 로테이션·런드리24: 연속 근무 끊고 → 로테이션 휴무가 넘치면 되돌림 (자동 배치 대상은 휴일 다 나눈 뒤에)
+  for (const e of emps.filter(x => !flex.includes(x))) breakRuns(e);
+  for (const e of emps.filter(x => rotations[x.id])) trimToQuota(e);
 
   const need = new Map(flex.map(e => {
     let used = 0;
@@ -180,20 +235,28 @@ function autoSchedule(emps, month, approved, rotations, peak, adj = {}) {
       progress = true;
     }
   }
+  // 자동 배치 대상: 연속 6일 이상 끊고, 그만큼 늘어난 휴일은 다른 날에서 되돌림
+  for (const e of flex) { breakRuns(e); trimToQuota(e); }
+
   // 그래도 부족한 날은 그날 쉬는 사람의 휴일을 여유 있는 날로 옮김 (신청한 날·로테이션은 안 건드림)
+  // 옮겨 보고 주 5일·연속 5일 위반이 늘면 되돌림
+  const broken = e => weekIssues([e], month, cells, adj).length + runIssues([e], month, cells, adj).length;
   for (let d = 1; d <= n; d++) {
     for (let moved = true; moved && head(d) < minGo(month, d, peak);) {
       moved = false;
       for (const e of flex) {
         if (cells[e.id][d] !== '휴일' || fixed.has(e.id + '-' + d)) continue;
-        // 휴일을 다른 주로 옮기면 이 주가 5일을 넘을 수 있으니 확인
-        const wd = weekOfDay(d), slack = weekWork(e, wd, month, cells, adj) < 5;
-        let d2 = 1;
-        while (d2 <= n && !(on(e, d2) && !cells[e.id][d2] && head(d2) > minGo(month, d2, peak)
-          && (slack || weekOfDay(d2) === wd))) d2++;
-        if (d2 > n) continue;
+        const was = broken(e);
+        let best = 0, bestS = -Infinity;
+        for (let d2 = 1; d2 <= n; d2++) {
+          if (!on(e, d2) || cells[e.id][d2] || head(d2) <= minGo(month, d2, peak)) continue;
+          delete cells[e.id][d]; cells[e.id][d2] = '휴일';
+          if (broken(e) <= was && surplus(e, d2) > bestS) [best, bestS] = [d2, surplus(e, d2)];
+          delete cells[e.id][d2]; cells[e.id][d] = '휴일';
+        }
+        if (!best) continue;
         delete cells[e.id][d];
-        cells[e.id][d2] = '휴일';
+        cells[e.id][best] = '휴일';
         moved = true;
         break;
       }
@@ -231,5 +294,5 @@ function toTSV(emps, month, cells) {
 
 if (typeof module !== 'undefined') module.exports = {
   TEAMS, CODES, DOW, HOLIDAYS, fmtMonth, addMonth, daysIn, ymd, dow, isRest, holidayCount, active, cellOf,
-  restQuota, rotationOffs, offLimit, canRequest, dayCount, isShort, riskOf, weeksOf, weekWork, weekIssues, autoSchedule, rotationGaps, toTSV,
+  restQuota, rotationOffs, offLimit, canRequest, dayCount, isShort, riskOf, weeksOf, weekWork, weekIssues, workRun, runIssues, autoSchedule, rotationGaps, toTSV,
 };

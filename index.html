@@ -419,7 +419,7 @@
       <div class="legend">
         <span><i></i>근무</span><span><i class="off"></i>휴일</span><span><i class="leave"></i>연차</span>
         <span><i class="bday"></i>생일(반차)</span><span><i class="official"></i>공가</span><span><i class="gone"></i>퇴직</span>
-        <span class="note admin-only">클릭 = 근무코드 변경 · 오른쪽 클릭 = 빈칸 · 파란 테두리 = 대기중 신청 · 빨간 인원 = 최소 인원 부족 · 빨간 밑줄 = 주(토~금) 5일 초과</span>
+        <span class="note admin-only">클릭 = 근무코드 변경 · 오른쪽 클릭 = 빈칸 · 파란 테두리 = 대기중 신청 · 빨간 인원 = 최소 인원 부족 · 빨간 밑줄 = 주(토~금) 5일 초과 또는 연속 6일 이상 근무</span>
       </div>
     </section>
 
@@ -505,14 +505,14 @@
         </svg>
         오류/문의 보내기
       </a>
-      <span class="site-footer-version">v2026.09.30.5</span>
+      <span class="site-footer-version">v2026.09.30.6</span>
     </div>
   </footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <!-- ?v= 는 배포마다 올리기 (GitHub Pages가 10분 캐시해서 예전 logic.js와 섞이는 것 방지). 푸터 버전과 같이 -->
-<script src="logic.js?v=2026.09.30.5"></script>
+<script src="logic.js?v=2026.09.30.6"></script>
 <script>
 // 매장 정보 시스템(laundry24-store)과 같은 Supabase 프로젝트 (anon 키는 공개용. 권한은 DB 정책이 막아요)
 const SUPABASE_URL = 'https://ebiepxqkqeyyxewnddov.supabase.co';
@@ -777,12 +777,16 @@ async function loadReqs() {
 // ---------- 스케줄표 ----------
 function renderGrid() {
   const hide = !sched.published && !me.is_admin;
-  const issues = weekIssues(emps, month, sched.cells, adj), over = new Map();
-  for (const w of issues) for (const d of w.days) over.set(w.id + '-' + d, w.work);
+  // 규칙 위반 칸: 주(토~금) 5일 초과 · 연속 6일 이상 근무 → 빨간 밑줄 + 툴팁 문구
+  const issues = weekIssues(emps, month, sched.cells, adj), runs = runIssues(emps, month, sched.cells, adj), over = new Map();
+  const note = (k, t) => over.set(k, over.has(k) ? over.get(k) + '\n' + t : t);
+  for (const w of issues) for (const d of w.days) note(w.id + '-' + d, `이 주(토~금) ${w.work}일 근무`);
+  for (const r of runs) for (const d of r.days) note(r.id + '-' + d, `연속 ${r.work}일 근무${r.work > r.days.length ? ' (지난달 월말부터)' : ''}`);
   $('#schedStatus').innerHTML = (sched.published ? '<span class="pill pill-done">확정 · 공개 중</span>'
     : `<span class="pill pill-wait">${me.is_admin ? '초안 · 직원에게 안 보여요' : '확정 전'}</span>`)
     + (dirty ? ' <span class="pill pill-dirty">저장 안 됨</span>' : '')
-    + (issues.length && me.is_admin ? ` <span class="pill st-반려">주 5일 초과 ${issues.length}건</span>` : '');
+    + (issues.length && me.is_admin ? ` <span class="pill st-반려">주 5일 초과 ${issues.length}건</span>` : '')
+    + (runs.length && me.is_admin ? ` <span class="pill st-반려">연속 6일 이상 ${runs.length}건</span>` : '');
   $('#gridWrap').hidden = hide;
   $('#gridEmpty').hidden = !hide;
   $('#peak').checked = sched.peak;
@@ -804,7 +808,7 @@ function renderGrid() {
       for (const d of days) {
         const c = cellOf(e, month, d, cells), p = pend[e.id + '-' + d], o = me.is_admin && over.get(e.id + '-' + d);
         const cls = [CLS[c], p && 'pend', o && 'over'].filter(Boolean).join(' ');
-        const tip = [p && `신청: ${p}`, o && `이 주(토~금) ${o}일 근무`].filter(Boolean).join(' · ');
+        const tip = [p && `신청: ${p}`, o].filter(Boolean).join('\n');
         h += `<td data-e="${e.id}" data-d="${d}" data-col="${d}"${cls ? ` class="${cls}"` : ''}${tip ? ` title="${tip}"` : ''}>${c}</td>`;
       }
       // 휴무 수량: 휴일 수 (자동 배치 대상 런드리고는 기준 대비) + 연차·공가·생일
