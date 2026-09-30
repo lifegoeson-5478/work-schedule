@@ -91,6 +91,17 @@ create policy ws_req_insert on public.ws_requests for insert to authenticated wi
 create policy ws_req_delete on public.ws_requests for delete to authenticated using (employee_id = public.ws_my_employee_id() and status = '대기');
 create policy ws_req_admin  on public.ws_requests for all    to authenticated using (public.ws_is_admin()) with check (public.ws_is_admin());
 
+-- 3-1. 임시 비밀번호 → 첫 로그인 때 강제 변경 ------------------------------
+-- 관리자가 어드민 > 담당자 관리에서 켜고, 본인이 비밀번호를 바꾸면 자동으로 꺼짐
+alter table public.ws_employees add column if not exists must_change_pw boolean not null default false;
+
+-- 직원은 ws_employees를 직접 못 고치니, 본인 표시만 끄는 함수
+create or replace function public.ws_password_changed() returns void
+  language sql security definer set search_path = public as
+  $$ update public.ws_employees set must_change_pw = false where lower(email) = lower(auth.jwt() ->> 'email') $$;
+revoke execute on function public.ws_password_changed() from public, anon;
+grant execute on function public.ws_password_changed() to authenticated;
+
 -- 4. 첫 관리자 등록 (이메일·이름 바꿔서 주석 풀고 실행) -------------------
 -- 이후 담당자는 사이트 어드민 > 담당자 관리에서 추가하면 돼요.
 -- insert into public.ws_employees (email, name, team, part, position, shift, is_admin, sort)

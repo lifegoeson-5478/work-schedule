@@ -77,6 +77,7 @@
   .auth-links { margin-top: 16px; font-size: 13px; }
   .auth-links a, .auth-foot a { color: var(--text2); font-weight: 500; text-decoration: underline; text-decoration-color: var(--border2); text-underline-offset: 3px; }
   .auth-links a:hover, .auth-foot a:hover { color: var(--text); text-decoration-color: var(--text); }
+  .pw-links { display: flex; justify-content: space-between; }
   .auth-foot { font-size: 12px; color: var(--text3); margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border); line-height: 1.7; }
 
   /* 로고 (워드마크): 큰 제목과 같은 굵기 + 초록 마침표 */
@@ -326,6 +327,33 @@
   </div>
 </div>
 
+<!-- 비밀번호 변경: 메뉴(change) · 임시 비밀번호 강제(force) · 재설정 메일 링크(recovery) -->
+<div id="pwScreen" class="auth-screen" hidden>
+  <div class="auth-card">
+    <div class="auth-brand"><span class="brand">근무 스케줄<span>.</span></span></div>
+    <div class="hero-meta mono"><span>CS / PASSWORD</span><span class="js-today"></span></div>
+    <h1 class="auth-heading" id="pwHeading">비밀번호 변경<span class="hero-dot">.</span></h1>
+    <p class="auth-lead" id="pwLead"></p>
+    <form id="pwForm">
+      <div class="field" id="curField">
+        <label for="curPw">현재 비밀번호</label>
+        <div class="pw-wrap"><input id="curPw" name="cur" type="password" class="input input-lg" autocomplete="current-password"><button type="button" class="pw-toggle" tabindex="-1">보기</button></div>
+      </div>
+      <div class="field">
+        <label for="newPw">새 비밀번호 <span class="hint">(8자 이상)</span></label>
+        <div class="pw-wrap"><input id="newPw" name="pw1" type="password" class="input input-lg" minlength="8" required autocomplete="new-password"><button type="button" class="pw-toggle" tabindex="-1">보기</button></div>
+      </div>
+      <div class="field" style="margin-bottom:18px">
+        <label for="newPw2">새 비밀번호 확인</label>
+        <div class="pw-wrap"><input id="newPw2" name="pw2" type="password" class="input input-lg" minlength="8" required autocomplete="new-password"><button type="button" class="pw-toggle" tabindex="-1">보기</button></div>
+      </div>
+      <div id="pwMsg" class="alert alert-error" hidden></div>
+      <button class="btn btn-lg btn-primary btn-block">비밀번호 변경</button>
+    </form>
+    <div class="auth-links pw-links"><a href="#" id="pwCancel">← 돌아가기</a><a href="#" id="pwLogout">로그아웃</a></div>
+  </div>
+</div>
+
 <div id="app" hidden>
   <header>
     <div class="nav-inner">
@@ -340,6 +368,10 @@
         <button class="btn-admin admin-only" data-tab="admin">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
           <span class="lbl">어드민</span><span class="badge-n" id="pendN" hidden></span>
+        </button>
+        <button id="pwBtn" class="btn-admin" title="비밀번호 변경">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          <span class="lbl">비밀번호</span>
         </button>
         <button id="logout" class="btn btn-ghost">로그아웃</button>
       </div>
@@ -432,6 +464,7 @@
             <div class="fg"><label>입사일 <span class="hint">(이전은 퇴직 표시)</span></label><input class="input" name="start_date" type="date"></div>
             <div class="fg"><label>퇴직일 <span class="hint">(다음날부터 퇴직 표시)</span></label><input class="input" name="end_date" type="date"></div>
             <div class="fg check"><label><input type="checkbox" name="is_admin"> 관리자 권한</label></div>
+            <div class="fg check"><label title="임시 비밀번호를 준 사람: 로그인하면 비밀번호부터 바꾸게 해요"><input type="checkbox" name="must_change_pw"> 첫 로그인 시 비밀번호 변경</label></div>
           </div>
           <div class="edit-actions">
             <button class="btn btn-lg btn-primary">저장</button>
@@ -460,14 +493,14 @@
         </svg>
         오류/문의 보내기
       </a>
-      <span class="site-footer-version">v2026.09.30.2</span>
+      <span class="site-footer-version">v2026.09.30.3</span>
     </div>
   </footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <!-- ?v= 는 배포마다 올리기 (GitHub Pages가 10분 캐시해서 예전 logic.js와 섞이는 것 방지). 푸터 버전과 같이 -->
-<script src="logic.js?v=2026.09.30.2"></script>
+<script src="logic.js?v=2026.09.30.3"></script>
 <script>
 // 매장 정보 시스템(laundry24-store)과 같은 Supabase 프로젝트 (anon 키는 공개용. 권한은 DB 정책이 막아요)
 const SUPABASE_URL = 'https://ebiepxqkqeyyxewnddov.supabase.co';
@@ -551,11 +584,11 @@ function loginMsg(t, ok) {
   el.className = 'alert ' + (ok ? 'alert-success' : 'alert-error');
 }
 const creds = () => ({ email: $('#email').value.trim(), password: $('#pw').value });
-$('.pw-toggle').onclick = ev => {
-  const show = $('#pw').type === 'password';
-  $('#pw').type = show ? 'text' : 'password';
-  ev.target.textContent = show ? '숨기기' : '보기';
-};
+document.querySelectorAll('.pw-toggle').forEach(b => b.onclick = () => {
+  const input = b.previousElementSibling, show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  b.textContent = show ? '숨기기' : '보기';
+});
 
 $('#loginForm').onsubmit = async ev => {
   ev.preventDefault();
@@ -576,21 +609,64 @@ $('#reset').onclick = async ev => {
   const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: pageUrl });
   loginMsg(error ? error.message : '비밀번호 재설정 메일을 보냈어요. 메일함을 확인해 주세요.', !error);
 };
-sb.auth.onAuthStateChange(ev => {
-  if (ev !== 'PASSWORD_RECOVERY') return;
-  setTimeout(async () => {
-    const password = prompt('새 비밀번호를 입력하세요 (6자 이상)');
-    if (!password) return;
-    const { error } = await sb.auth.updateUser({ password });
-    alert(error ? error.message : '비밀번호가 바뀌었어요.');
-  });
-});
-$('#logout').onclick = async () => { await sb.auth.signOut(); location.reload(); };
+// 재설정 메일 링크로 들어오면 비밀번호 설정 화면
+sb.auth.onAuthStateChange(ev => { if (ev === 'PASSWORD_RECOVERY') setTimeout(() => openPw('recovery')); });
+const logout = async () => { await sb.auth.signOut(); location.reload(); };
+$('#logout').onclick = logout;
+
+// ---------- 비밀번호 변경 ----------
+// change = 메뉴에서 (현재 비밀번호 확인) · force = 임시 비밀번호 (바꾸기 전엔 다른 화면 못 감) · recovery = 재설정 링크
+let pwMode = null;
+function openPw(mode) {
+  pwMode = mode;
+  $('#login').hidden = $('#app').hidden = true;
+  $('#pwScreen').hidden = false;
+  $('#pwLead').textContent = {
+    change: '현재 비밀번호를 확인한 뒤 새 비밀번호로 바꿔요.',
+    force: '임시 비밀번호로 로그인했어요. 비밀번호를 바꿔야 사이트를 쓸 수 있어요.',
+    recovery: '앞으로 사용할 비밀번호를 설정해 주세요.',
+  }[mode];
+  const f = $('#pwForm');
+  f.reset();
+  f.cur.required = mode === 'change';
+  $('#curField').hidden = mode !== 'change';
+  $('#pwCancel').hidden = mode !== 'change';
+  $('#pwMsg').hidden = true;
+  (mode === 'change' ? f.cur : f.pw1).focus();
+}
+const pwMsg = t => { $('#pwMsg').textContent = t; $('#pwMsg').hidden = false; };
+$('#pwBtn').onclick = () => openPw('change');
+$('#pwCancel').onclick = ev => { ev.preventDefault(); pwMode = null; $('#pwScreen').hidden = true; $('#app').hidden = false; };
+$('#pwLogout').onclick = ev => { ev.preventDefault(); logout(); };
+
+$('#pwForm').onsubmit = async ev => {
+  ev.preventDefault();
+  const f = ev.target, pw = f.pw1.value;
+  if (pw !== f.pw2.value) return pwMsg('새 비밀번호가 서로 달라요.');
+  if (pwMode === 'force' && pw === $('#pw').value) return pwMsg('임시 비밀번호와 다른 비밀번호를 써 주세요.');
+  if (pwMode === 'change') {
+    if (pw === f.cur.value) return pwMsg('지금 비밀번호와 다른 비밀번호를 써 주세요.');
+    const { data: { user } } = await sb.auth.getUser();
+    const { error } = await sb.auth.signInWithPassword({ email: user.email, password: f.cur.value });
+    if (error) return pwMsg('현재 비밀번호가 맞지 않아요.');
+  }
+  const { error } = await sb.auth.updateUser({ password: pw });
+  if (error) return pwMsg(/different from the old/i.test(error.message) ? '이전과 다른 비밀번호를 써 주세요.'
+    : /reauthenticat/i.test(error.message) ? '보안을 위해 로그아웃 후 다시 로그인해서 바꿔 주세요.' : error.message);
+  if (me?.must_change_pw) { await sb.rpc('ws_password_changed'); me.must_change_pw = false; }
+  const mode = pwMode;
+  pwMode = null;
+  $('#pwScreen').hidden = true;
+  $('#pw').value = '';
+  if (mode === 'change') { $('#app').hidden = false; alert('비밀번호가 바뀌었어요.'); }
+  else start();
+};
 
 async function start() {
   const { data: { session } } = await sb.auth.getSession();
+  if (pwMode) return;                      // 비밀번호 화면이 떠 있으면 그대로
   $('#login').hidden = !!session;
-  $('#app').hidden = !session;
+  $('#app').hidden = true;
   if (!session) return;
   const { data } = await sb.from('ws_employees').select('*').order('sort').order('id');
   emps = data || [];
@@ -600,6 +676,8 @@ async function start() {
     $('#login').hidden = false; $('#app').hidden = true;
     return loginMsg('등록된 직원 이메일이 아니에요. 팀장님께 등록을 요청하세요.');
   }
+  if (me.must_change_pw) return openPw('force');   // 임시 비밀번호: 바꾸기 전엔 사이트 화면 안 그림
+  $('#app').hidden = false;
   document.body.classList.toggle('admin', me.is_admin);
   $('#who').textContent = `${me.name} · ${me.team}`;
   await load();
@@ -996,7 +1074,7 @@ function renderEmps() {
   const rows = TEAMS.flatMap(t => emps.filter(e => e.team === t));
   $('#empList').innerHTML = '<thead><tr><th>이름</th><th>이메일</th><th>팀</th><th>직책 · 출근</th><th>재직 기간</th><th></th></tr></thead><tbody>' +
     rows.map(e => `<tr class="${e.end_date && e.end_date < today ? 'retired' : ''}">
-      <td>${esc(e.name)}${e.is_admin ? ' <span class="pill pill-done">관리자</span>' : ''}</td>
+      <td>${esc(e.name)}${e.is_admin ? ' <span class="pill pill-done">관리자</span>' : ''}${e.must_change_pw ? ' <span class="pill pill-wait" title="첫 로그인 때 비밀번호를 바꿔야 해요">임시 비번</span>' : ''}</td>
       <td class="reason">${esc(e.email)}</td><td>${e.team}</td><td>${esc(e.position)} · ${esc(e.shift)}</td>
       <td class="date">${e.start_date || ''} ~ ${e.end_date || ''}</td>
       <td class="act"><button class="btn btn-sm" data-edit="${e.id}">수정</button> <button class="btn btn-sm btn-danger-ghost" data-del="${e.id}">삭제</button></td></tr>`).join('') + '</tbody>';
@@ -1008,6 +1086,7 @@ function fillEmp(e) {
     sort: Math.max(0, ...emps.map(x => x.sort || 0)) + 1 };
   for (const k of EF) ef(k).value = d[k] ?? '';
   ef('is_admin').checked = !!d.is_admin;
+  ef('must_change_pw').checked = e ? !!e.must_change_pw : true;   // 새 담당자는 기본으로 켬
   $('#empFormTitle').textContent = e ? `${e.name} 수정` : '담당자 추가';
   $('#empCancel').hidden = !e;
 }
@@ -1031,6 +1110,7 @@ $('#empForm').onsubmit = async ev => {
   row.email = row.email.toLowerCase();
   row.sort = +row.sort || 0;
   row.is_admin = ef('is_admin').checked;
+  row.must_change_pw = ef('must_change_pw').checked;
   if (row.start_date && row.end_date && row.end_date < row.start_date) return alert('퇴직일이 입사일보다 빨라요.');
   if (editingEmp?.id === me.id && !row.is_admin) return alert('본인의 관리자 권한은 뺄 수 없어요.');
   const { error } = editingEmp
