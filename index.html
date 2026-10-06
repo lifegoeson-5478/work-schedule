@@ -621,6 +621,17 @@ function loginMsg(t, ok) {
   el.className = 'alert ' + (ok ? 'alert-success' : 'alert-error');
 }
 const creds = () => ({ email: $('#email').value.trim(), password: $('#pw').value });
+// Supabase 영어 오류 → 한국어
+function authErr(m) {
+  if (/invalid login credentials/i.test(m)) return '이메일 또는 비밀번호가 맞지 않아요.';
+  if (/email rate limit/i.test(m)) return '메일 발송 한도를 넘었어요. 1시간쯤 뒤에 다시 시도하거나, 관리자에게 비밀번호 변경을 요청해 주세요.';
+  const wait = m.match(/after (\d+) seconds?/i);
+  if (wait) return `보안을 위해 ${wait[1]}초 뒤에 다시 시도해 주세요.`;
+  if (/email not confirmed/i.test(m)) return '메일 인증이 아직 안 됐어요. 메일함의 인증 링크를 먼저 눌러 주세요.';
+  if (/already registered/i.test(m)) return '이미 가입된 이메일이에요. 로그인하거나 비밀번호 찾기를 해주세요.';
+  if (/signups not allowed|signup is disabled/i.test(m)) return '직접 가입이 막혀 있어요. 관리자에게 계정 생성을 요청해 주세요.';
+  return m;
+}
 document.querySelectorAll('.pw-toggle').forEach(b => b.onclick = () => {
   const input = b.previousElementSibling, show = input.type === 'password';
   input.type = show ? 'text' : 'password';
@@ -630,21 +641,21 @@ document.querySelectorAll('.pw-toggle').forEach(b => b.onclick = () => {
 $('#loginForm').onsubmit = async ev => {
   ev.preventDefault();
   const { error } = await sb.auth.signInWithPassword(creds());
-  if (error) return loginMsg(error.message === 'Invalid login credentials' ? '이메일 또는 비밀번호가 맞지 않아요.' : error.message);
+  if (error) return loginMsg(authErr(error.message));
   start();
 };
 $('#signup').onclick = async ev => {
   ev.preventDefault();
   if (!$('#loginForm').reportValidity()) return;
   const { error } = await sb.auth.signUp({ ...creds(), options: { emailRedirectTo: pageUrl } });
-  loginMsg(error ? error.message : '인증 메일을 보냈어요. 메일의 링크를 누른 뒤 로그인하세요.', !error);
+  loginMsg(error ? authErr(error.message) : '인증 메일을 보냈어요. 메일의 링크를 누른 뒤 로그인하세요.', !error);
 };
 $('#reset').onclick = async ev => {
   ev.preventDefault();
   const email = $('#email').value.trim();
   if (!email) return loginMsg('이메일을 먼저 입력하세요.');
   const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: pageUrl });
-  loginMsg(error ? error.message : '비밀번호 재설정 메일을 보냈어요. 메일함을 확인해 주세요.', !error);
+  loginMsg(error ? authErr(error.message) : '비밀번호 재설정 메일을 보냈어요. 메일함을 확인해 주세요.', !error);
 };
 // 재설정 메일 링크로 들어오면 비밀번호 설정 화면
 sb.auth.onAuthStateChange(ev => { if (ev === 'PASSWORD_RECOVERY') setTimeout(() => openPw('recovery')); });
