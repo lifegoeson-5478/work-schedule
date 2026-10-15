@@ -99,6 +99,37 @@ assert.deepEqual(L.rotationGaps(emps, '런드리24', M, { 10: '금·토', 11: '�
   }
 }
 
+// 로테이션 패턴
+{
+  assert.equal(L.parsePattern('일월 > 금토 > 수목 > 금토 > 일월 > 목금'), '일·월,금·토,수·목,금·토,일·월,목·금');
+  assert.equal(L.parsePattern('일·월, 금·토'), '일·월,금·토');
+  assert.equal(L.parsePattern('일월 > 금'), null);       // 한 글자
+  assert.equal(L.parsePattern('일일'), null);            // 같은 요일
+  assert.equal(L.parsePattern(''), null);
+  const p = { id: 1, rot_pattern: '일·월,금·토,수·목', rot_start: '2026-11' };
+  assert.equal(L.patternRot(p, '2026-10'), '');          // 시작 전
+  assert.equal(L.patternRot(p, '2026-11'), '일·월');
+  assert.equal(L.patternRot(p, '2027-01'), '수·목');
+  assert.equal(L.patternRot(p, '2027-02'), '일·월');     // 한 바퀴 돌아옴
+  assert.deepEqual(L.rotationsFor([p], '2026-12', {}), { 1: '금·토' });
+  assert.deepEqual(L.rotationsFor([p], '2026-12', { 1: '화·수' }), { 1: '화·수' });   // 직접 입력(예외) 우선
+}
+
+// 휴무 겹치면 안 되는 짝
+{
+  const a = emps[1], b = emps[2], pair = [{ a: a.id, b: b.id }];
+  const cells = { [a.id]: { 3: '휴일', 5: '연차', 7: '생일' }, [b.id]: { 3: '공가', 5: '휴일', 7: '휴일' } };
+  assert.deepEqual(L.conflictIssues(emps, '2026-10', cells, pair)[0].days, [3, 5]);   // 생일반차는 겹침 아님
+  assert.deepEqual(L.rotationConflicts(pair, { [a.id]: '수·목', [b.id]: '목·금' }), [{ a: a.id, b: b.id, days: '목' }]);
+  // 자동 배치(로테이션 없는 런드리고)는 짝과 겹치지 않게
+  const goOnly = emps.filter(e => e.team === '런드리고');
+  for (let run = 0; run < 20; run++) {
+    const c = L.autoSchedule(goOnly, '2026-10', [], {}, false, {}, [{ a: 2, b: 3 }, { a: 4, b: 5 }]);
+    assert.deepEqual(L.conflictIssues(goOnly, '2026-10', c, [{ a: 2, b: 3 }, { a: 4, b: 5 }]), [], '짝 휴무 겹침');
+    assert.deepEqual(L.runIssues(goOnly, '2026-10', c), []);
+  }
+}
+
 // 연차 위험한 날
 {
   const go1 = emps[1], am = emps[9], pm = emps[11];

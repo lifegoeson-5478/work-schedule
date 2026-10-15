@@ -191,6 +191,9 @@
   #grid td.sum.bad, #grid td.sum.bad small { color: #B91C1C; }
   #grid td.over { box-shadow: inset 0 -3px 0 var(--danger); }
   #grid td.pend.over { box-shadow: inset 0 0 0 2px var(--blue), inset 0 -3px 0 var(--danger); }
+  #grid td.clash { box-shadow: inset 0 3px 0 #8B5CF6; }
+  #grid td.clash.over { box-shadow: inset 0 3px 0 #8B5CF6, inset 0 -3px 0 var(--danger); }
+  .pill-clash { background: var(--purple-light); color: var(--purple); }
   #grid td.col-hl { background-image: linear-gradient(rgba(16,24,40,.06), rgba(16,24,40,.06)); }
   #grid thead th.col-hl, #grid thead th.col-hl b { background: var(--text); color: #fff; }
   #rotGrid { width: 100%; min-width: 1080px; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 13px; }
@@ -206,6 +209,14 @@
   #rotGrid select.changed { border-color: var(--accent); }
   #rotGrid tr.check th, #rotGrid tr.check td { background: var(--bg); font-size: 11px; font-weight: 600; }
   #rotGrid td.ok { color: var(--accent-text); }
+  #rotGrid select.pat { color: var(--text3); font-weight: 500; }
+  .rot-sub { margin-top: 36px; }
+  .rot-sub .sec-lbl { margin-bottom: 0; }
+  #patList td .input { width: 100%; padding: 7px 10px; }
+  #patList td.pat-in { min-width: 280px; }
+  #patList td.pat-start { width: 160px; }
+  .cf-add { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+  .cf-add .input { min-width: 150px; }
   #rotGrid td.bad { color: #B91C1C; background: #FEE2E2; white-space: normal; line-height: 1.4; }
   body.admin #grid td[data-e]:not(.gone) { cursor: pointer; }
   body.admin #grid td[data-e]:not(.gone):hover { filter: brightness(.94); }
@@ -427,7 +438,7 @@
       <div class="legend">
         <span><i></i>근무</span><span><i class="off"></i>휴일</span><span><i class="leave"></i>연차</span>
         <span><i class="bday"></i>생일(반차)</span><span><i class="official"></i>공가</span><span><i class="gone"></i>퇴직</span>
-        <span class="note admin-only">클릭 = 근무코드 변경 · 오른쪽 클릭 = 빈칸 · 파란 테두리 = 대기중 신청 · 빨간 인원 = 최소 인원 부족 · 빨간 밑줄 = 주(토~금) 5일 초과 또는 연속 6일 이상 근무</span>
+        <span class="note admin-only">클릭 = 근무코드 변경 · 오른쪽 클릭 = 빈칸 · 파란 테두리 = 대기중 신청 · 빨간 인원 = 최소 인원 부족 · 빨간 밑줄 = 주(토~금) 5일 초과 또는 연속 6일 이상 근무 · 보라 윗줄 = 짝과 휴무 겹침</span>
       </div>
     </section>
 
@@ -464,7 +475,23 @@
         <p class="hint" style="margin-top:12px;line-height:1.7">매달 고정으로 쉬는 요일이에요. 기본 휴무 = 그달 주말 + 공휴일 수예요.<br>
           · 로테이션이 있는 사람: 그 요일에 쉬어요. 로테이션 휴무가 기본 휴무보다 <b>적으면</b> 모자란 만큼 필요휴무를 신청할 수 있고, <b>많으면</b> 자동 배치가 넘치는 만큼 근무로 되돌려요(주 5일·지난달 월말 고려).<br>
           · 런드리고에서 ‘자동’으로 둔 사람: 자동 배치가 기본 휴무 수만큼 휴일을 나눠 넣어요.<br>
-          · ‘점검’ 줄: 로테이션만 봤을 때 최소 인원이 부족한 요일이에요.</p>
+          · ‘점검’ 줄: 로테이션만 봤을 때 최소 인원이 부족한 요일이에요. ‘짝 겹침’ 줄: 휴무 겹치면 안 되는 짝의 로테이션이 겹치는 달이에요.<br>
+          · 흐린 글씨 = 아래 패턴으로 자동 계산된 달, 진한 글씨 = 그 달만 직접 바꾼 예외.</p>
+
+        <div class="rot-sub">
+          <div class="sec-lbl">ROTATION PATTERN · 담당자별 로테이션 패턴</div>
+          <p class="hint" style="margin:8px 0 10px">예: <b>일월 > 금토 > 수목 > 금토 > 일월 > 목금</b> — 시작 월부터 한 달에 하나씩, 끝까지 가면 처음으로 돌아가요. 비우고 저장하면 패턴을 지워요.</p>
+          <table class="list" id="patList"></table>
+        </div>
+
+        <div class="rot-sub">
+          <div class="sec-lbl">NO-OVERLAP PAIRS · 휴무 겹치면 안 되는 짝</div>
+          <div class="cf-add">
+            <select class="input" id="cfA"></select><span class="hint">·</span><select class="input" id="cfB"></select>
+            <button class="btn btn-primary" id="cfAdd">짝 추가</button>
+          </div>
+          <table class="list" id="cfList"></table>
+        </div>
       </div>
       <div id="pReqs">
         <div class="filter-bar" id="adminFilter"></div>
@@ -513,14 +540,14 @@
         </svg>
         오류/문의 보내기
       </a>
-      <span class="site-footer-version">v2026.09.30.6</span>
+      <span class="site-footer-version">v2026.10.15.1</span>
     </div>
   </footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <!-- ?v= 는 배포마다 올리기 (GitHub Pages가 10분 캐시해서 예전 logic.js와 섞이는 것 방지). 푸터 버전과 같이 -->
-<script src="logic.js?v=2026.09.30.6"></script>
+<script src="logic.js?v=2026.10.15.1"></script>
 <script>
 // 매장 정보 시스템(laundry24-store)과 같은 Supabase 프로젝트 (anon 키는 공개용. 권한은 DB 정책이 막아요)
 const SUPABASE_URL = 'https://ebiepxqkqeyyxewnddov.supabase.co';
@@ -535,6 +562,9 @@ const dayLabel = date => `${date.slice(5, 7)}.${date.slice(8)} ${DOW[new Date(da
 const pageUrl = location.origin + location.pathname;
 
 let me, emps = [], reqs = [], rotations = {}, sched, adj = {}, dirty = false, tab = 'sched';
+let explicitRot = {};   // 그 달에 직접 입력한 로테이션(예외). rotations = 예외 + 패턴
+let conflicts = [];     // 휴무 겹치면 안 되는 짝 [{ a, b }]
+const empName = id => emps.find(e => e.id === id)?.name || '?';
 let dayCounts = {};   // { 팀: { 일: { am, pm, total } } } — DB 예상 인원 (확정 전에도 숫자만 보임)
 // 날짜별 예상 근무 인원 (스케줄 칸 → 로테이션 → 대기·승인 신청 순)
 async function loadDayCounts(m) {
@@ -716,8 +746,12 @@ async function start() {
   $('#login').hidden = !!session;
   $('#app').hidden = true;
   if (!session) return;
-  const { data } = await sb.from('ws_employees').select('*').order('sort').order('id');
+  const [{ data }, cf] = await Promise.all([
+    sb.from('ws_employees').select('*').order('sort').order('id'),
+    sb.from('ws_conflicts').select('a,b'),
+  ]);
   emps = data || [];
+  conflicts = cf.data || [];
   me = emps.find(e => e.email.toLowerCase() === session.user.email.toLowerCase());
   if (!me) {
     await sb.auth.signOut();
@@ -788,7 +822,8 @@ async function load() {
   const byMonth = Object.fromEntries((s.data || []).map(r => [r.month, r]));
   sched = byMonth[month] || { month, cells: {}, peak: false, published: false };
   adj = { prev: byMonth[prev]?.cells || null };
-  rotations = Object.fromEntries((ro.data || []).map(r => [r.employee_id, r.days]));
+  explicitRot = Object.fromEntries((ro.data || []).map(r => [r.employee_id, r.days]));
+  rotations = rotationsFor(emps, month, explicitRot);
   dirty = false;
   await loadReqs();
 }
@@ -807,11 +842,18 @@ function renderGrid() {
   const note = (k, t) => over.set(k, over.has(k) ? over.get(k) + '\n' + t : t);
   for (const w of issues) for (const d of w.days) note(w.id + '-' + d, `이 주(토~금) ${w.work}일 근무`);
   for (const r of runs) for (const d of r.days) note(r.id + '-' + d, `연속 ${r.work}일 근무${r.work > r.days.length ? ' (지난달 월말부터)' : ''}`);
+  // 휴무 겹치면 안 되는 짝이 같은 날 쉼 → 보라 윗줄
+  const clashes = conflictIssues(emps, month, sched.cells, conflicts), clash = new Map();
+  for (const x of clashes) for (const d of x.days) {
+    clash.set(x.a + '-' + d, `${empName(x.b)}님과 휴무 겹침`);
+    clash.set(x.b + '-' + d, `${empName(x.a)}님과 휴무 겹침`);
+  }
   $('#schedStatus').innerHTML = (sched.published ? '<span class="pill pill-done">확정 · 공개 중</span>'
     : `<span class="pill pill-wait">${me.is_admin ? '초안 · 직원에게 안 보여요' : '확정 전'}</span>`)
     + (dirty ? ' <span class="pill pill-dirty">저장 안 됨</span>' : '')
     + (issues.length && me.is_admin ? ` <span class="pill st-반려">주 5일 초과 ${issues.length}건</span>` : '')
-    + (runs.length && me.is_admin ? ` <span class="pill st-반려">연속 6일 이상 ${runs.length}건</span>` : '');
+    + (runs.length && me.is_admin ? ` <span class="pill st-반려">연속 6일 이상 ${runs.length}건</span>` : '')
+    + (clashes.length && me.is_admin ? ` <span class="pill pill-clash">휴무 겹침 ${clashes.reduce((s, x) => s + x.days.length, 0)}일</span>` : '');
   $('#gridWrap').hidden = hide;
   $('#gridEmpty').hidden = !hide;
   $('#peak').checked = sched.peak;
@@ -832,8 +874,9 @@ function renderGrid() {
       h += `<tr class="${e.id === me.id ? 'mine' : ''}"><th class="name">${esc(e.name)}<small>${esc(e.position)} · ${esc(e.shift)}</small></th>`;
       for (const d of days) {
         const c = cellOf(e, month, d, cells), p = pend[e.id + '-' + d], o = me.is_admin && over.get(e.id + '-' + d);
-        const cls = [CLS[c], p && 'pend', o && 'over'].filter(Boolean).join(' ');
-        const tip = [p && `신청: ${p}`, o].filter(Boolean).join('\n');
+        const x = me.is_admin && clash.get(e.id + '-' + d);
+        const cls = [CLS[c], p && 'pend', o && 'over', x && 'clash'].filter(Boolean).join(' ');
+        const tip = [p && `신청: ${p}`, o, x].filter(Boolean).join('\n');
         h += `<td data-e="${e.id}" data-d="${d}" data-col="${d}"${cls ? ` class="${cls}"` : ''}${tip ? ` title="${tip}"` : ''}>${c}</td>`;
       }
       // 휴무 수량: 휴일 수 (자동 배치 대상 런드리고는 기준 대비) + 연차·공가·생일
@@ -894,7 +937,7 @@ $('#auto').onclick = () => {
   const noRot = emps.filter(e => e.team === '런드리24' && !rotations[e.id] && active(e, ymd(month, daysIn(month)))).map(e => e.name);
   if (noRot.length && !confirm(`로테이션이 없는 런드리24 직원: ${noRot.join(', ')}\n그래도 진행할까요?`)) return;
   if (!confirm('승인된 신청과 로테이션으로 다시 배치할까요?\n지금 표 내용은 덮어써요.')) return;
-  sched.cells = autoSchedule(emps, month, reqs.filter(r => r.status === '승인'), rotations, sched.peak, adj);
+  sched.cells = autoSchedule(emps, month, reqs.filter(r => r.status === '승인'), rotations, sched.peak, adj, conflicts);
   dirty = true;
   renderGrid();
 };
@@ -1041,9 +1084,18 @@ function renderAdmin() {
       const e = byId[r.employee_id] || {}, m = r.date.slice(0, 7), d = +r.date.slice(8);
       const c = adminCounts[m]?.[e.team]?.[d] || dayCount(emps, e.team, m, d, schedOf(m).cells);
       const risk = r.status === '대기' && riskOf(e, m, d, c, schedOf(m).peak);
+      // 짝이 그날 쉬는지: 스케줄 칸 → 로테이션(이번 달은 예외 포함, 다른 달은 패턴) → 같은 날 신청
+      const mates = r.status === '대기' ? conflicts.flatMap(x => x.a === e.id ? [x.b] : x.b === e.id ? [x.a] : []).filter(pid => {
+        const p = emps.find(x => x.id === pid);
+        if (!p) return false;
+        if (offCode(cellOf(p, m, d, schedOf(m).cells))) return true;
+        if ((m === month ? rotations[pid] : patternRot(p, m))?.includes(DOW[dow(m, d)])) return true;
+        return adminReqs.some(q => q.employee_id === pid && q.date === r.date && q.status !== '반려');
+      }) : [];
       return `<tr><td class="date">${r.date.slice(2, 4)}.${dayLabel(r.date)}</td><td>${esc(e.name)}<small>${esc(e.team)}</small></td><td>${r.kind}</td><td class="reason">${esc(r.reason)}</td>
         <td>${e.team === '런드리24' ? `오전 ${c.am} · 오후 ${c.pm}` : c.total + '명'}${risk
-          ? ` <span class="pill ${risk === '부족' ? 'st-반려' : 'pill-wait'}" title="승인하면 ${e.team === '런드리24' ? (e.shift === '13:00' ? '오후조' : '오전조') + ' ' + (e.shift === '13:00' ? c.pm : c.am) + '명 (최소 1명)' : '근무 ' + c.total + '명 (최소 ' + minGo(m, d, schedOf(m).peak) + '명)'}">${risk === '부족' ? '승인 시 부족' : '승인 시 딱 최소'}</span>` : ''}</td>
+          ? ` <span class="pill ${risk === '부족' ? 'st-반려' : 'pill-wait'}" title="승인하면 ${e.team === '런드리24' ? (e.shift === '13:00' ? '오후조' : '오전조') + ' ' + (e.shift === '13:00' ? c.pm : c.am) + '명 (최소 1명)' : '근무 ' + c.total + '명 (최소 ' + minGo(m, d, schedOf(m).peak) + '명)'}">${risk === '부족' ? '승인 시 부족' : '승인 시 딱 최소'}</span>` : ''}${mates.map(pid =>
+          ` <span class="pill pill-clash" title="휴무 겹치면 안 되는 짝이 이날 쉬어요">${esc(empName(pid))}님과 겹침</span>`).join('')}</td>
         <td class="date hint">${r.created_at ? r.created_at.slice(5, 10).replace('-', '.') : ''}</td>
         <td class="act">${r.status === '대기' ? `<button class="btn btn-sm btn-primary" data-ok="${r.id}">승인</button> <button class="btn btn-sm" data-no="${r.id}">반려</button>` : `<span class="pill st-${r.status}">${r.status}</span>`}</td></tr>`;
     }).join('') + '</tbody>'
@@ -1088,7 +1140,9 @@ $('#adminTabs').onclick = ev => {
 const PAIRS = ['일·월', '월·화', '화·수', '수·목', '목·금', '금·토', '토·일'];
 let rotStart = clampMonth(fmtMonth(new Date())), rotData = {}, rotEdit = {};
 const rotMonths = () => Array.from({ length: 12 }, (_, i) => addMonth(rotStart, i));
-const rotVal = (id, m) => rotEdit[id + '|' + m] ?? rotData[id + '|' + m] ?? '';
+// 칸 값: 직접 입력(예외) → 없으면 패턴
+const rotExplicit = (id, m) => rotEdit[id + '|' + m] ?? rotData[id + '|' + m] ?? '';
+const rotVal = (e, m) => rotExplicit(e.id, m) || patternRot(e, m);
 
 async function loadRot() {
   if (Object.keys(rotEdit).length && !confirm('저장하지 않은 로테이션 변경이 있어요. 버릴까요?')) return false;
@@ -1097,6 +1151,15 @@ async function loadRot() {
   rotData = Object.fromEntries((data || []).map(r => [r.employee_id + '|' + r.month, r.days]));
   rotEdit = {};
   renderRot();
+  renderPatterns();
+  renderConflicts();
+}
+// 이번 달 화면용 로테이션 다시 계산 (패턴·예외 바뀐 뒤)
+async function refreshMonthRot() {
+  const { data } = await sb.from('ws_rotations').select('*').eq('month', month);
+  explicitRot = Object.fromEntries((data || []).map(r => [r.employee_id, r.days]));
+  rotations = rotationsFor(emps, month, explicitRot);
+  renderReq();
 }
 function renderRot() {
   const months = rotMonths(), n = Object.keys(rotEdit).length;
@@ -1110,23 +1173,99 @@ function renderRot() {
     h += `<tr class="team"><th class="name">${t}</th><td colspan="12"></td></tr>`;
     for (const e of list) {
       h += `<tr><th class="name">${esc(e.name)}<small>${esc(e.shift)}</small></th>` + months.map(m => {
-        const k = e.id + '|' + m, v = rotVal(e.id, m), opts = PAIRS.includes(v) || !v ? PAIRS : [v, ...PAIRS];
-        return `<td><select data-k="${k}" class="${v ? '' : 'none'}${k in rotEdit ? ' changed' : ''}">
-          <option value="">${t === '런드리고' ? '자동' : '—'}</option>${opts.map(p => `<option${p === v ? ' selected' : ''}>${p}</option>`).join('')}</select></td>`;
+        const k = e.id + '|' + m, v = rotVal(e, m), fromPat = v && !rotExplicit(e.id, m);
+        const opts = PAIRS.includes(v) || !v ? PAIRS : [v, ...PAIRS];
+        return `<td><select data-k="${k}" class="${!v ? 'none' : fromPat ? 'pat' : ''}${k in rotEdit ? ' changed' : ''}"${fromPat ? ' title="패턴으로 계산된 달"' : ''}>
+          <option value="">${e.rot_pattern ? '패턴대로' : t === '런드리고' ? '자동' : '—'}</option>${opts.map(p => `<option${p === v ? ' selected' : ''}>${p}</option>`).join('')}</select></td>`;
       }).join('') + '</tr>';
     }
     h += '<tr class="check"><th class="name">점검</th>' + months.map(m => {
-      const gaps = rotationGaps(list, t, m, Object.fromEntries(list.map(e => [e.id, rotVal(e.id, m)])));
+      const gaps = rotationGaps(list, t, m, Object.fromEntries(list.map(e => [e.id, rotVal(e, m)])));
       return gaps.length ? `<td class="bad">${gaps.join('<br>')}</td>` : '<td class="ok">✓</td>';
     }).join('') + '</tr>';
   }
+  if (conflicts.length) h += '<tr class="team"><th class="name">휴무 겹치면 안 되는 짝</th><td colspan="12"></td></tr>'
+    + '<tr class="check"><th class="name">짝 겹침</th>' + months.map(m => {
+      const rot = Object.fromEntries(emps.map(e => [e.id, rotVal(e, m)]));
+      const xs = rotationConflicts(conflicts, rot);
+      return xs.length ? `<td class="bad">${xs.map(x => `${esc(empName(x.a))}·${esc(empName(x.b))}(${x.days})`).join('<br>')}</td>` : '<td class="ok">✓</td>';
+    }).join('') + '</tr>';
   $('#rotGrid').innerHTML = h + '</tbody>';
 }
 $('#rotGrid').onchange = ev => {
   const k = ev.target.dataset.k;
   if (!k) return;
-  if (ev.target.value === (rotData[k] ?? '')) delete rotEdit[k]; else rotEdit[k] = ev.target.value;
+  const [id, m] = k.split('|'), e = emps.find(x => x.id === +id);
+  const v = ev.target.value === patternRot(e, m) ? '' : ev.target.value;   // 패턴과 같으면 예외 아님
+  if (v === (rotData[k] ?? '')) delete rotEdit[k]; else rotEdit[k] = v;
   renderRot();
+};
+
+// ---------- 로테이션 패턴 ----------
+const showPattern = p => (p || '').split(',').filter(Boolean).map(x => x.replace('·', '')).join(' > ');
+function renderPatterns() {
+  const list = TEAMS.flatMap(t => emps.filter(e => e.team === t && (!e.end_date || e.end_date >= START_MONTH + '-01')));
+  $('#patList').innerHTML = '<thead><tr><th>이름</th><th>패턴</th><th>시작 월</th><th>이번 달</th><th></th></tr></thead><tbody>'
+    + list.map(e => `<tr data-id="${e.id}"><td>${esc(e.name)}<small>${e.team}</small></td>
+      <td class="pat-in"><input class="input" value="${esc(showPattern(e.rot_pattern))}" placeholder="예: 일월 > 금토 > 수목"></td>
+      <td class="pat-start"><input class="input" type="month" min="${START_MONTH}" value="${e.rot_start || ''}"></td>
+      <td class="hint">${patternRot(e, month) ? `${+month.slice(5)}월 ${patternRot(e, month)}` : ''}</td>
+      <td class="act"><button class="btn btn-sm btn-primary" data-patsave>저장</button></td></tr>`).join('') + '</tbody>';
+}
+$('#patList').onclick = async ev => {
+  if (!('patsave' in ev.target.dataset)) return;
+  const tr = ev.target.closest('tr'), e = emps.find(x => x.id === +tr.dataset.id);
+  const txt = tr.querySelector('.pat-in input').value.trim(), start = tr.querySelector('.pat-start input').value;
+  const pattern = txt ? parsePattern(txt) : null;
+  if (txt && !pattern) return alert('형식이 맞지 않아요.\n요일 두 글자씩 > 로 이어서 써 주세요. 예: 일월 > 금토 > 수목');
+  if (pattern && !start) return alert('시작 월을 골라 주세요.');
+  const { error } = await sb.from('ws_employees').update({ rot_pattern: pattern, rot_start: pattern ? start : null }).eq('id', e.id);
+  if (error) return alert('저장 실패: ' + error.message);
+  if (pattern) {
+    // 시작 월부터 직접 입력해 둔 달이 있으면 패턴으로 바꿀지 물어봄
+    const { data: old } = await sb.from('ws_rotations').select('month').eq('employee_id', e.id).gte('month', start);
+    if (old?.length && confirm(`${e.name}님은 ${start.replace('-', '.')}부터 직접 입력한 로테이션이 ${old.length}개월 있어요.\n지우고 패턴대로 할까요?\n(취소하면 그 달들은 예외로 그대로 남아요)`)) {
+      const { error: delErr } = await sb.from('ws_rotations').delete().eq('employee_id', e.id).gte('month', start);
+      if (delErr) alert('직접 입력값 삭제 실패: ' + delErr.message);
+    }
+  }
+  await reloadEmps();
+  rotEdit = {};
+  await loadRot();
+  await refreshMonthRot();
+};
+
+// ---------- 휴무 겹치면 안 되는 짝 ----------
+function renderConflicts() {
+  const list = TEAMS.flatMap(t => emps.filter(e => e.team === t && (!e.end_date || e.end_date >= START_MONTH + '-01')));
+  const opts = list.map(e => `<option value="${e.id}">${esc(e.name)} (${e.team})</option>`).join('');
+  $('#cfA').innerHTML = opts;
+  $('#cfB').innerHTML = opts;
+  $('#cfList').innerHTML = conflicts.length
+    ? '<tbody>' + conflicts.map(c => `<tr><td>${esc(empName(c.a))} <span class="hint">·</span> ${esc(empName(c.b))}</td>
+      <td class="act"><button class="btn btn-sm btn-danger-ghost" data-cfdel="${c.a}-${c.b}">삭제</button></td></tr>`).join('') + '</tbody>'
+    : '<tbody><tr><td class="empty" style="padding:24px 0">등록된 짝이 없어요.</td></tr></tbody>';
+}
+async function reloadConflicts() {
+  const { data } = await sb.from('ws_conflicts').select('a,b');
+  conflicts = data || [];
+  renderConflicts(); renderRot(); renderGrid();
+}
+$('#cfAdd').onclick = async () => {
+  const x = +$('#cfA').value, y = +$('#cfB').value;
+  if (!x || !y || x === y) return alert('서로 다른 두 사람을 골라 주세요.');
+  const { error } = await sb.from('ws_conflicts').insert({ a: Math.min(x, y), b: Math.max(x, y) });
+  if (error) return alert(error.code === '23505' ? '이미 등록된 짝이에요.' : '추가 실패: ' + error.message);
+  reloadConflicts();
+};
+$('#cfList').onclick = async ev => {
+  const k = ev.target.dataset.cfdel;
+  if (!k) return;
+  const [a, b] = k.split('-').map(Number);
+  if (!confirm(`${empName(a)} · ${empName(b)} 짝을 삭제할까요?`)) return;
+  const { error } = await sb.from('ws_conflicts').delete().eq('a', a).eq('b', b);
+  if (error) return alert('삭제 실패: ' + error.message);
+  reloadConflicts();
 };
 $('#rotPrev').onclick = async () => { const s = rotStart; rotStart = clampMonth(addMonth(rotStart, -3)); if (await loadRot() === false) rotStart = s; };
 $('#rotNext').onclick = async () => { const s = rotStart; rotStart = addMonth(rotStart, 3); if (await loadRot() === false) rotStart = s; };
@@ -1146,9 +1285,7 @@ $('#rotSave').onclick = async () => {
   }
   rotEdit = {};
   await loadRot();
-  const { data } = await sb.from('ws_rotations').select('*').eq('month', month);
-  rotations = Object.fromEntries((data || []).map(r => [r.employee_id, r.days]));
-  renderReq();
+  await refreshMonthRot();
 };
 
 // ---------- 어드민: 담당자 관리 ----------

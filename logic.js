@@ -41,6 +41,51 @@ function restQuota(e, month) {
   for (let d = 1; d <= daysIn(month); d++) if (active(e, ymd(month, d)) && isRest(month, d)) q++;
   return q;
 }
+// ---------- 로테이션 패턴: "일월 > 금토 > 수목" 을 시작 월부터 매달 하나씩 돌림 ----------
+const monthIdx = m => { const [y, mo] = ym(m); return y * 12 + mo; };
+// 입력 문자열 → '일·월,금·토,수·목' (형식이 틀리면 null)
+function parsePattern(text) {
+  const toks = String(text || '').replace(/·/g, '').split(/[^일월화수목금토]+/).filter(Boolean);
+  if (!toks.length || toks.some(t => t.length !== 2 || t[0] === t[1])) return null;
+  return toks.map(t => t[0] + '·' + t[1]).join(',');
+}
+// 그 달 패턴 로테이션 (패턴 없거나 시작 전이면 '')
+function patternRot(e, month) {
+  if (!e.rot_pattern || !e.rot_start || month < e.rot_start) return '';
+  const p = e.rot_pattern.split(',');
+  return p[(monthIdx(month) - monthIdx(e.rot_start)) % p.length];
+}
+// 그 달 로테이션: 직접 입력(예외)이 있으면 그것, 없으면 패턴
+function rotationsFor(emps, month, explicit = {}) {
+  const out = {};
+  for (const e of emps) { const v = explicit[e.id] || patternRot(e, month); if (v) out[e.id] = v; }
+  return out;
+}
+
+// ---------- 휴무 겹치면 안 되는 짝 ----------
+const offCode = c => c === '휴일' || c === '연차' || c === '공가';   // 생일은 반차라 근무로 봄
+// 둘 다 쉬는 날 → [{ a, b, days }]
+function conflictIssues(emps, month, cells, conflicts = []) {
+  const byId = Object.fromEntries(emps.map(e => [e.id, e])), out = [];
+  for (const { a, b } of conflicts) {
+    if (!byId[a] || !byId[b]) continue;
+    const days = [];
+    for (let d = 1; d <= daysIn(month); d++)
+      if (offCode(cellOf(byId[a], month, d, cells)) && offCode(cellOf(byId[b], month, d, cells))) days.push(d);
+    if (days.length) out.push({ a, b, days });
+  }
+  return out;
+}
+// 로테이션 요일이 겹치는 짝 → [{ a, b, days: '수' }]
+function rotationConflicts(conflicts, rot) {
+  const out = [];
+  for (const { a, b } of conflicts) {
+    const same = [...DOW].filter(w => (rot[a] || '').includes(w) && (rot[b] || '').includes(w)).join('');
+    if (same) out.push({ a, b, days: same });
+  }
+  return out;
+}
+
 // 재직 기간 안에서 로테이션 요일에 해당하는 날 수
 function rotationOffs(e, month, rotations = {}) {
   const off = rotations[e.id] || '';
@@ -131,18 +176,19 @@ function runIssues(emps, month, cells, adj = {}) {
 // 승인된 신청 → 로테이션(팀 무관) → 주 5일·연속 5일 보정 → 로테이션 없는 런드리고는 남은 휴일을 인원 여유가 큰 날부터 배정
 // adj = { prev }: 지난달 cells (월초 주 5일 계산용)
 // ponytail: 무작위가 섞인 배치를 여러 번 해서 인원 부족한 날이 가장 적은 결과를 고름 (빠듯한 인원에서 효과 큼)
-function autoSchedule(emps, month, approved, rotations, peak, adj = {}, tries = 20) {
+// conflicts = [{ a, b }]: 휴무 겹치면 안 되는 짝 (겹친 날도 '나쁨'으로 쳐서 덜 겹치는 결과를 고름)
+function autoSchedule(emps, month, approved, rotations, peak, adj = {}, conflicts = [], tries = 20) {
   const teams = TEAMS.filter(t => emps.some(e => e.team === t));
-  let best, bestShort = Infinity;
-  for (let i = 0; i < tries && bestShort > 0; i++) {
-    const c = autoScheduleOnce(emps, month, approved, rotations, peak, adj);
-    let short = 0;
-    for (let d = 1; d <= daysIn(month); d++) for (const t of teams) if (isShort(t, month, d, dayCount(emps, t, month, d, c), peak)) short++;
-    if (short < bestShort) [best, bestShort] = [c, short];
+  let best, bestBad = Infinity;
+  for (let i = 0; i < tries && bestBad > 0; i++) {
+    const c = autoScheduleOnce(emps, month, approved, rotations, peak, adj, conflicts);
+    let bad = conflictIssues(emps, month, c, conflicts).reduce((s, x) => s + x.days.length, 0);
+    for (let d = 1; d <= daysIn(month); d++) for (const t of teams) if (isShort(t, month, d, dayCount(emps, t, month, d, c), peak)) bad++;
+    if (bad < bestBad) [best, bestBad] = [c, bad];
   }
   return best;
 }
-function autoScheduleOnce(emps, month, approved, rotations, peak, adj = {}) {
+function autoScheduleOnce(emps, month, approved, rotations, peak, adj = {}, conflicts = []) {
   const n = daysIn(month), cells = {};
   const on = (e, d) => active(e, ymd(month, d));
   for (const e of emps) cells[e.id] = {};
@@ -162,8 +208,12 @@ function autoScheduleOnce(emps, month, approved, rotations, peak, adj = {}) {
   // 주 5일 초과면 그 주(이번 달 쪽) 안에서 인원 여유가 큰 날을 휴일로
   const weeks = weeksOf(month);
   const weekOfDay = d => weeks.find(w => w.some(x => x.m === month && x.d === d));
-  const surplus = (e, d) => e.team === '런드리고' ? head(d) - target(d)
-    : emps.filter(x => x.team === e.team && (x.shift === '13:00') === (e.shift === '13:00') && on(x, d) && !cells[x.id][d]).length - 1;
+  // 짝이 쉬는 날은 크게 감점 → 휴일 넣을 땐 피하고, 휴일 뺄 땐 먼저 뺌
+  const partners = id => conflicts.flatMap(c => c.a === id ? [c.b] : c.b === id ? [c.a] : []);
+  const clash = (e, d) => partners(e.id).some(p => cells[p] && offCode(cells[p][d]));
+  const surplus = (e, d) => (e.team === '런드리고' ? head(d) - target(d)
+    : emps.filter(x => x.team === e.team && (x.shift === '13:00') === (e.shift === '13:00') && on(x, d) && !cells[x.id][d]).length - 1)
+    - (clash(e, d) ? 20 : 0);
   for (const w of weeks) for (const e of emps) {
     const days = w.filter(x => x.m === month).map(x => x.d);
     while (weekWork(e, w, month, cells, adj) > 5) {
@@ -226,6 +276,7 @@ function autoScheduleOnce(emps, month, approved, rotations, peak, adj = {}) {
         for (let k = d + 1; cells[e.id][k]; k++) run++;
         const h = head(d);
         const score = h - target(d) + (h <= minGo(month, d, peak) ? -10 : 0) // 최소 인원 깨는 날은 최후 수단
+          + (clash(e, d) ? -20 : 0)                                         // 짝과 겹치는 날은 더 최후 수단
           + (run === 2 ? 0.4 : run > 2 ? 2 - run : 0) + Math.random() * 0.3;
         if (score > bestScore) [best, bestScore] = [d, score];
       }
@@ -294,5 +345,5 @@ function toTSV(emps, month, cells) {
 
 if (typeof module !== 'undefined') module.exports = {
   TEAMS, CODES, DOW, HOLIDAYS, fmtMonth, addMonth, daysIn, ymd, dow, isRest, holidayCount, active, cellOf,
-  restQuota, rotationOffs, offLimit, canRequest, dayCount, isShort, riskOf, weeksOf, weekWork, weekIssues, workRun, runIssues, autoSchedule, rotationGaps, toTSV,
+  restQuota, rotationOffs, offLimit, parsePattern, patternRot, rotationsFor, offCode, conflictIssues, rotationConflicts, canRequest, dayCount, isShort, riskOf, weeksOf, weekWork, weekIssues, workRun, runIssues, autoSchedule, rotationGaps, toTSV,
 };
