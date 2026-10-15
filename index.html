@@ -462,6 +462,12 @@
         <button class="atab active" data-atab="pReqs">휴무 신청 승인</button>
         <button class="atab" data-atab="pEmps">담당자 관리</button>
         <button class="atab" data-atab="pRot">로테이션</button>
+        <button class="atab" data-atab="pPat">로테이션 패턴</button>
+      </div>
+      <div id="pPat" hidden>
+        <p class="hint" style="margin:0 0 12px;line-height:1.7">예: <b>일월 > 금토 > 수목 > 금토 > 일월 > 목금</b> — 시작 월부터 한 달에 하나씩, 끝까지 가면 처음으로 돌아가요. 비우고 저장하면 패턴을 지워요.<br>
+          특정 달만 다르게 하려면 ‘로테이션’ 탭 표에서 그 칸만 바꾸면 돼요(예외).</p>
+        <table class="list" id="patList"></table>
       </div>
       <div id="pRot" hidden>
         <div class="toolbar">
@@ -476,13 +482,7 @@
           · 로테이션이 있는 사람: 그 요일에 쉬어요. 로테이션 휴무가 기본 휴무보다 <b>적으면</b> 모자란 만큼 필요휴무를 신청할 수 있고, <b>많으면</b> 자동 배치가 넘치는 만큼 근무로 되돌려요(주 5일·지난달 월말 고려).<br>
           · 런드리고에서 ‘자동’으로 둔 사람: 자동 배치가 기본 휴무 수만큼 휴일을 나눠 넣어요.<br>
           · ‘점검’ 줄: 로테이션만 봤을 때 최소 인원이 부족한 요일이에요. ‘짝 겹침’ 줄: 휴무 겹치면 안 되는 짝의 로테이션이 겹치는 달이에요.<br>
-          · 흐린 글씨 = 아래 패턴으로 자동 계산된 달, 진한 글씨 = 그 달만 직접 바꾼 예외.</p>
-
-        <div class="rot-sub">
-          <div class="sec-lbl">ROTATION PATTERN · 담당자별 로테이션 패턴</div>
-          <p class="hint" style="margin:8px 0 10px">예: <b>일월 > 금토 > 수목 > 금토 > 일월 > 목금</b> — 시작 월부터 한 달에 하나씩, 끝까지 가면 처음으로 돌아가요. 비우고 저장하면 패턴을 지워요.</p>
-          <table class="list" id="patList"></table>
-        </div>
+          · 흐린 글씨 = ‘로테이션 패턴’ 탭의 패턴으로 자동 계산된 달, 진한 글씨 = 그 달만 직접 바꾼 예외.</p>
 
         <div class="rot-sub">
           <div class="sec-lbl">NO-OVERLAP PAIRS · 휴무 겹치면 안 되는 짝</div>
@@ -1132,8 +1132,10 @@ $('#adminTabs').onclick = ev => {
   $('#pReqs').hidden = t !== 'pReqs';
   $('#pEmps').hidden = t !== 'pEmps';
   $('#pRot').hidden = t !== 'pRot';
+  $('#pPat').hidden = t !== 'pPat';
   if (t === 'pEmps') { fillEmp(null); renderEmps(); }
   if (t === 'pRot') loadRot();
+  if (t === 'pPat') renderPatterns();
 };
 
 // ---------- 어드민: 로테이션 (12개월 표) ----------
