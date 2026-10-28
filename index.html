@@ -181,6 +181,7 @@
   #grid td.off { background: var(--orange-light); color: var(--orange); }
   #grid td.leave { background: var(--blue-light); color: var(--blue); }
   #grid td.bday { background: var(--purple-light); color: var(--purple); }
+  #grid td.half { background: #CCF3F1; color: #0F766E; }
   #grid td.official { background: var(--accent-light); color: var(--accent-text); }
   #grid td.gone { background: var(--bg); color: var(--text3); font-weight: 500; }
   #grid td.pend { box-shadow: inset 0 0 0 2px var(--blue); }
@@ -222,7 +223,7 @@
   body.admin #grid td[data-e]:not(.gone):hover { filter: brightness(.94); }
   .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; font-size: 12px; color: var(--text2); font-weight: 500; }
   .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 0; background: var(--border2); }
-  .legend .off { background: #FF5017; } .legend .leave { background: #16A0FA; } .legend .bday { background: #8B5CF6; }
+  .legend .off { background: #FF5017; } .legend .leave { background: #16A0FA; } .legend .bday { background: #8B5CF6; } .legend .half { background: #14B8A6; }
   .legend .official { background: var(--accent); } .legend .gone { background: var(--text3); }
   .legend .note { margin-left: auto; color: var(--text3); }
   .empty { text-align: center; padding: 80px 0; color: var(--text3); font-size: 14px; }
@@ -289,6 +290,7 @@
   .cal-cell.off .cal-code { background: var(--orange-light); color: var(--orange); }
   .cal-cell.leave .cal-code { background: var(--blue-light); color: var(--blue); }
   .cal-cell.bday .cal-code { background: var(--purple-light); color: var(--purple); }
+  .cal-cell.half .cal-code { background: #CCF3F1; color: #0F766E; }
   .cal-cell.official .cal-code { background: var(--accent-light); color: var(--accent-text); }
   .cal-cell.gone .cal-code { background: none; color: var(--text3); padding: 0; }
 
@@ -437,7 +439,7 @@
       <div class="empty" id="gridEmpty" hidden>아직 확정 전이에요. 최종 스케줄은 매월 25일에 나와요.</div>
       <div class="legend">
         <span><i></i>근무</span><span><i class="off"></i>휴일</span><span><i class="leave"></i>연차</span>
-        <span><i class="bday"></i>생일(반차)</span><span><i class="official"></i>공가</span><span><i class="gone"></i>퇴직</span>
+        <span><i class="half"></i>반차</span><span><i class="bday"></i>생일(반차)</span><span><i class="official"></i>공가</span><span><i class="gone"></i>퇴직</span>
         <span class="note admin-only">클릭 = 근무코드 변경 · 오른쪽 클릭 = 빈칸 · 파란 테두리 = 대기중 신청 · 빨간 인원 = 최소 인원 부족 · 빨간 밑줄 = 주(토~금) 5일 초과 또는 연속 6일 이상 근무 · 보라 윗줄 = 짝과 휴무 겹침</span>
       </div>
     </section>
@@ -446,7 +448,7 @@
       <form id="reqForm" class="req-form">
         <input type="date" name="date" class="input input-lg" style="width:auto" required>
         <select name="kind" class="input input-lg" style="width:auto">
-          <option>필요휴무</option><option>연차</option><option>공가</option><option value="생일">생일(반차)</option>
+          <option>필요휴무</option><option>연차</option><option>반차</option><option>공가</option><option value="생일">생일(반차)</option>
         </select>
         <input name="reason" class="input input-lg reason" placeholder="사유 (선택)" maxlength="100">
         <button class="btn btn-lg btn-primary">신청</button>
@@ -540,14 +542,14 @@
         </svg>
         오류/문의 보내기
       </a>
-      <span class="site-footer-version">v2026.10.15.1</span>
+      <span class="site-footer-version">v2026.10.28.1</span>
     </div>
   </footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <!-- ?v= 는 배포마다 올리기 (GitHub Pages가 10분 캐시해서 예전 logic.js와 섞이는 것 방지). 푸터 버전과 같이 -->
-<script src="logic.js?v=2026.10.15.1"></script>
+<script src="logic.js?v=2026.10.28.1"></script>
 <script>
 // 매장 정보 시스템(laundry24-store)과 같은 Supabase 프로젝트 (anon 키는 공개용. 권한은 DB 정책이 막아요)
 const SUPABASE_URL = 'https://ebiepxqkqeyyxewnddov.supabase.co';
@@ -556,7 +558,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
-const CLS = { 휴일: 'off', 연차: 'leave', 생일: 'bday', 공가: 'official', 퇴직: 'gone' };
+const CLS = { 휴일: 'off', 연차: 'leave', 반차: 'half', 생일: 'bday', 공가: 'official', 퇴직: 'gone' };
 const label = m => `${+m.slice(0, 4)}년 ${+m.slice(5)}월`;
 const dayLabel = date => `${date.slice(5, 7)}.${date.slice(8)} ${DOW[new Date(date).getDay()]}`;
 const pageUrl = location.origin + location.pathname;
@@ -879,13 +881,13 @@ function renderGrid() {
         const tip = [p && `신청: ${p}`, o, x].filter(Boolean).join('\n');
         h += `<td data-e="${e.id}" data-d="${d}" data-col="${d}"${cls ? ` class="${cls}"` : ''}${tip ? ` title="${tip}"` : ''}>${c}</td>`;
       }
-      // 휴무 수량: 휴일 수 (자동 배치 대상 런드리고는 기준 대비) + 연차·공가·생일
-      const n = { 휴일: 0, 연차: 0, 공가: 0, 생일: 0 };
+      // 휴무 수량: 휴일 수 (자동 배치 대상 런드리고는 기준 대비) + 연차·반차·공가·생일
+      const n = { 휴일: 0, 연차: 0, 반차: 0, 공가: 0, 생일: 0 };
       for (const d of days) { const c = cellOf(e, month, d, cells); if (c in n) n[c]++; }
       // 기준 = 기본 휴무. 자동 배치(런드리고 로테이션 없음)는 딱 맞아야, 로테이션은 넘치면 문제(모자라면 필요휴무로 채움)
-      const quota = restQuota(e, month), extra = n.연차 + n.공가 + n.생일;
+      const quota = restQuota(e, month), extra = n.연차 + n.반차 + n.공가 + n.생일;
       const bad = rotations[e.id] ? n.휴일 > quota : e.team === '런드리고' && n.휴일 !== quota;
-      h += `<td class="sum${bad ? ' bad' : ''}" title="${esc(e.name)} ${+month.slice(5)}월 휴무&#10;휴일 ${n.휴일}일 (기준 ${quota}일${rotations[e.id] ? ` · 로테이션 ${esc(rotations[e.id])}` : ''})&#10;연차 ${n.연차}일 · 공가 ${n.공가}일 · 생일 ${n.생일}일">`
+      h += `<td class="sum${bad ? ' bad' : ''}" title="${esc(e.name)} ${+month.slice(5)}월 휴무&#10;휴일 ${n.휴일}일 (기준 ${quota}일${rotations[e.id] ? ` · 로테이션 ${esc(rotations[e.id])}` : ''})&#10;연차 ${n.연차}일 · 반차 ${n.반차}일 · 공가 ${n.공가}일 · 생일 ${n.생일}일">`
         + `${n.휴일}<small>/${quota}</small>${extra ? `<em>+${extra}</em>` : ''}</td></tr>`;
     }
     h += `<tr class="count"><th class="name">${t === '런드리24' ? '근무 인원 (오전/오후)' : '근무 인원'}</th>` + days.map(d => {
@@ -966,7 +968,7 @@ function renderMine() {
   const today = new Date().toLocaleDateString('sv');
   const myReq = {};
   for (const r of reqs) if (r.employee_id === me.id && r.status !== '반려') myReq[+r.date.slice(8)] = r;
-  const cnt = { 근무: 0, 휴일: 0, 연차: 0, 공가: 0, 생일: 0 };
+  const cnt = { 근무: 0, 휴일: 0, 연차: 0, 반차: 0, 공가: 0, 생일: 0 };
   let h = [...DOW].map((w, i) => `<div class="cal-h${i === 0 ? ' sun' : i === 6 ? ' sat' : ''}">${w}</div>`).join('');
   h += '<div class="cal-cell empty"></div>'.repeat(dow(month, 1));
   for (let d = 1; d <= n; d++) {
@@ -987,7 +989,7 @@ function renderMine() {
   const used = reqs.filter(r => r.employee_id === me.id && r.kind === '필요휴무' && r.status !== '반려').length;
   $('#mineSummary').innerHTML = (show
     ? `<span>근무 <b>${cnt.근무}</b>일</span><span>휴일 <b>${cnt.휴일}</b>일</span>`
-      + ['연차', '공가', '생일'].filter(k => cnt[k]).map(k => `<span>${k} <b>${cnt[k]}</b>일</span>`).join('')
+      + ['연차', '반차', '공가', '생일'].filter(k => cnt[k]).map(k => `<span>${k} <b>${cnt[k]}</b>일</span>`).join('')
     : '<span class="pill pill-wait">확정 전</span><span>최종 스케줄은 25일에 나와요. 내 신청만 표시돼요.</span>')
     + `<span class="cal-quota">필요휴무 <b>${used}/${offLimit(me, month, rotations)}</b></span>`;
   $('#mineHint').textContent = (open ? '날짜를 누르면 그 날짜로 휴무 신청을 할 수 있어요. ' : '')

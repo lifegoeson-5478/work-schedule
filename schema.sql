@@ -30,7 +30,7 @@ create table if not exists public.ws_requests (
   id bigint generated always as identity primary key,
   employee_id bigint not null references public.ws_employees on delete cascade,
   date date not null,
-  kind text not null check (kind in ('필요휴무', '연차', '공가', '생일')),
+  kind text not null check (kind in ('필요휴무', '연차', '반차', '공가', '생일')),
   reason text,
   status text not null default '대기' check (status in ('대기', '승인', '반려')),
   created_at timestamptz not null default now()

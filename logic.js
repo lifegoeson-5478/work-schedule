@@ -1,6 +1,6 @@
 // 스케줄 계산 로직 (브라우저와 test.js에서 같이 씀)
 const TEAMS = ['런드리고', '런드리24'];
-const CODES = ['', '휴일', '연차', '생일', '공가']; // '' = 근무
+const CODES = ['', '휴일', '연차', '반차', '생일', '공가']; // '' = 근무, 반차·생일(반차)은 반나절 근무
 const DOW = '일월화수목금토';
 
 // ponytail: 공휴일 직접 관리. 임시공휴일·선거일·2028년 이후는 여기에 추가
@@ -63,7 +63,7 @@ function rotationsFor(emps, month, explicit = {}) {
 }
 
 // ---------- 휴무 겹치면 안 되는 짝 ----------
-const offCode = c => c === '휴일' || c === '연차' || c === '공가';   // 생일은 반차라 근무로 봄
+const offCode = c => c === '휴일' || c === '연차' || c === '공가';   // 반차·생일(반차)은 반나절 출근이라 근무로 봄
 // 둘 다 쉬는 날 → [{ a, b, days }]
 function conflictIssues(emps, month, cells, conflicts = []) {
   const byId = Object.fromEntries(emps.map(e => [e.id, e])), out = [];
@@ -120,7 +120,7 @@ function riskOf(e, month, d, c, peak) {
 }
 
 // ---------- 주 5일 근무 (한 주 = 토~금, 월 경계는 앞뒤 달 칸까지 봄) ----------
-const worksOn = c => c === '' || c === '생일'; // 생일은 반차라 근무일로 셈
+const worksOn = c => c === '' || c === '반차' || c === '생일'; // 반차·생일(반차)은 출근하는 날이라 근무일로 셈
 // month에 걸친 주들. 각 주 = [{ m: 'YYYY-MM', d }] 7일 (앞뒤 달 날짜 포함)
 function weeksOf(month) {
   const [y, m] = ym(month), weeks = [];

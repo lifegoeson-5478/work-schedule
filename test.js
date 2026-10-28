@@ -118,8 +118,11 @@ assert.deepEqual(L.rotationGaps(emps, '런드리24', M, { 10: '금·토', 11: '�
 // 휴무 겹치면 안 되는 짝
 {
   const a = emps[1], b = emps[2], pair = [{ a: a.id, b: b.id }];
-  const cells = { [a.id]: { 3: '휴일', 5: '연차', 7: '생일' }, [b.id]: { 3: '공가', 5: '휴일', 7: '휴일' } };
-  assert.deepEqual(L.conflictIssues(emps, '2026-10', cells, pair)[0].days, [3, 5]);   // 생일반차는 겹침 아님
+  const cells = { [a.id]: { 3: '휴일', 5: '연차', 7: '생일', 9: '반차' }, [b.id]: { 3: '공가', 5: '휴일', 7: '휴일', 9: '휴일' } };
+  assert.deepEqual(L.conflictIssues(emps, '2026-10', cells, pair)[0].days, [3, 5]);   // 반차·생일반차는 겹침 아님
+  // 반차: 근무 인원엔 안 들어가고(생일과 같음), 연속 근무일엔 들어감
+  assert.equal(L.dayCount([a], a.team, '2026-10', 9, cells).total, 0);
+  assert.equal(L.workRun(a, '2026-10', 9, { [a.id]: { 8: '휴일', 10: '반차', 11: '휴일' } }), 2);
   assert.deepEqual(L.rotationConflicts(pair, { [a.id]: '수·목', [b.id]: '목·금' }), [{ a: a.id, b: b.id, days: '목' }]);
   // 자동 배치(로테이션 없는 런드리고)는 짝과 겹치지 않게
   const goOnly = emps.filter(e => e.team === '런드리고');
