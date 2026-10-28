@@ -144,12 +144,12 @@ language sql stable security definer set search_path = public as $$
     select d.day, e.team, e.shift,
       case
         when (e.start_date is not null and d.dt < e.start_date) or (e.end_date is not null and d.dt > e.end_date) then '퇴직'
-        when coalesce((select cells -> e.id::text ->> d.day::text from sch), '') = '반차' then ''   -- 반차는 근무 인원 1명
+        when coalesce((select cells -> e.id::text ->> d.day::text from sch), '') in ('반차', '생일') then ''   -- 반차·생일(반차)은 근무 인원 1명
         when coalesce((select cells -> e.id::text ->> d.day::text from sch), '') <> '' then 'off'
         when position(substr('일월화수목금토', extract(dow from d.dt)::int + 1, 1) in coalesce(
                (select r.days from public.ws_rotations r where r.employee_id = e.id and r.month = p_month),
                public.ws_pattern_rot(e.rot_pattern, e.rot_start, p_month), '')) > 0 then 'off'
-        when exists (select 1 from public.ws_requests q where q.employee_id = e.id and q.date = d.dt and q.status <> '반려' and q.kind <> '반차') then 'off'
+        when exists (select 1 from public.ws_requests q where q.employee_id = e.id and q.date = d.dt and q.status <> '반려' and q.kind not in ('반차', '생일')) then 'off'
         else ''
       end as code
     from days d cross join public.ws_employees e

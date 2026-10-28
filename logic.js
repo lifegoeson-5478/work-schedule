@@ -100,7 +100,7 @@ const canRequest = (month, now = new Date()) => { const [y, m] = ym(month); retu
 
 function dayCount(emps, team, month, d, cells) {
   let total = 0, am = 0, pm = 0;
-  for (const e of emps) if (e.team === team && ['', '반차'].includes(cellOf(e, month, d, cells))) {   // 반차는 근무 인원 1명
+  for (const e of emps) if (e.team === team && worksOn(cellOf(e, month, d, cells))) {   // 반차·생일(반차)은 근무 인원 1명
     total++;
     e.shift === '13:00' ? pm++ : am++;
   }
