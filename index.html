@@ -542,14 +542,14 @@
         </svg>
         오류/문의 보내기
       </a>
-      <span class="site-footer-version">v2026.10.28.1</span>
+      <span class="site-footer-version">v2026.10.28.2</span>
     </div>
   </footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <!-- ?v= 는 배포마다 올리기 (GitHub Pages가 10분 캐시해서 예전 logic.js와 섞이는 것 방지). 푸터 버전과 같이 -->
-<script src="logic.js?v=2026.10.28.1"></script>
+<script src="logic.js?v=2026.10.28.2"></script>
 <script>
 // 매장 정보 시스템(laundry24-store)과 같은 Supabase 프로젝트 (anon 키는 공개용. 권한은 DB 정책이 막아요)
 const SUPABASE_URL = 'https://ebiepxqkqeyyxewnddov.supabase.co';
@@ -883,7 +883,7 @@ function renderGrid() {
       }
       // 휴무 수량: 휴일 수 (자동 배치 대상 런드리고는 기준 대비) + 연차·반차·공가·생일
       const n = { 휴일: 0, 연차: 0, 반차: 0, 공가: 0, 생일: 0 };
-      for (const d of days) { const c = cellOf(e, month, d, cells); if (c in n) n[c]++; }
+      for (const d of days) { const c = cellOf(e, month, d, cells); if (c in n) n[c] += c === '반차' ? 0.5 : 1; }   // 반차는 휴무 0.5일
       // 기준 = 기본 휴무. 자동 배치(런드리고 로테이션 없음)는 딱 맞아야, 로테이션은 넘치면 문제(모자라면 필요휴무로 채움)
       const quota = restQuota(e, month), extra = n.연차 + n.반차 + n.공가 + n.생일;
       const bad = rotations[e.id] ? n.휴일 > quota : e.team === '런드리고' && n.휴일 !== quota;
@@ -973,9 +973,9 @@ function renderMine() {
   h += '<div class="cal-cell empty"></div>'.repeat(dow(month, 1));
   for (let d = 1; d <= n; d++) {
     const c = show ? cellOf(me, month, d, sched.cells) : null, r = myReq[d], hol = HOLIDAYS[ymd(month, d)];
-    if (c === '') cnt.근무++; else if (c in cnt) cnt[c]++;
+    if (c === '') cnt.근무++; else if (c in cnt) cnt[c] += c === '반차' ? 0.5 : 1;
     // 내가 근무인 날만: 내 팀(조) 예상 인원이 최소 이하면 연차 위험
-    const ct = dayCounts[me.team]?.[d], working = c === '' || (c === null && !r && active(me, ymd(month, d)));
+    const ct = dayCounts[me.team]?.[d], working = c === '' || c === '반차' || (c === null && !r && active(me, ymd(month, d)));
     const risk = working ? riskOf(me, month, d, ct, sched.peak) : null;
     const tip = [risk && riskTip(me, d, ct, risk), open && '눌러서 휴무 신청'].filter(Boolean).join('\n');
     const cls = ['cal-cell', CLS[c], isRest(month, d) && 'rest', ymd(month, d) === today && 'today', r?.status === '대기' && 'pend', open && 'can'].filter(Boolean).join(' ');
@@ -1085,7 +1085,7 @@ function renderAdmin() {
     ? '<thead><tr><th>날짜</th><th>이름</th><th>종류</th><th>사유</th><th>그날 근무 (승인 시)</th><th>신청일</th><th></th></tr></thead><tbody>' + list.map(r => {
       const e = byId[r.employee_id] || {}, m = r.date.slice(0, 7), d = +r.date.slice(8);
       const c = adminCounts[m]?.[e.team]?.[d] || dayCount(emps, e.team, m, d, schedOf(m).cells);
-      const risk = r.status === '대기' && riskOf(e, m, d, c, schedOf(m).peak);
+      const risk = r.status === '대기' && r.kind !== '반차' && riskOf(e, m, d, c, schedOf(m).peak);
       // 짝이 그날 쉬는지: 스케줄 칸 → 로테이션(이번 달은 예외 포함, 다른 달은 패턴) → 같은 날 신청
       const mates = r.status === '대기' ? conflicts.flatMap(x => x.a === e.id ? [x.b] : x.b === e.id ? [x.a] : []).filter(pid => {
         const p = emps.find(x => x.id === pid);
