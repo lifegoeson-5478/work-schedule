@@ -1036,6 +1036,7 @@ $('#reqForm').onsubmit = async ev => {
   if (kind === '필요휴무' && used >= lim) return alert(`필요휴무는 이번 달 ${lim}일까지 신청할 수 있어요.`);
   const { error } = await sb.from('ws_requests').insert({ employee_id: me.id, date: f.date.value, kind, reason: f.reason.value.trim() });
   if (error) return alert(error.code === '23505' ? '그 날짜엔 이미 신청이 있어요.' : '신청 실패: ' + error.message);
+  if (kind !== '필요휴무') alert(`${kind === '생일' ? '생일(반차)' : kind} 신청이 접수됐어요.\n\n해당 휴가는 오웬스에서 휴가 신청을 해주셔야 정상적으로 반영됩니다.\n오웬스 어플에서도 신청해 주세요.`);
   f.reset();
   $('#reqRisk').hidden = true;
   dayCounts = await loadDayCounts(month);
