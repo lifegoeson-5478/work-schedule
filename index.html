@@ -166,7 +166,7 @@
   #grid thead th { position: sticky; top: 0; z-index: 2; padding: 8px 0 7px; font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--text3); line-height: 1.35; border-bottom-color: var(--border); }
   #grid thead th b { display: block; font-family: 'Pretendard', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); }
   #grid thead th.rest, #grid thead th.rest b { color: var(--danger); }
-  #grid th.name { position: sticky; left: 0; z-index: 1; text-align: left; padding: 0 12px; width: 160px; overflow: hidden; text-overflow: ellipsis; font-size: 13px; font-weight: 700; color: var(--text); }
+  #grid thead th.today, #grid thead th.today b { background: var(--accent); color: #fff; }  #grid th.name { position: sticky; left: 0; z-index: 1; text-align: left; padding: 0 12px; width: 160px; overflow: hidden; text-overflow: ellipsis; font-size: 13px; font-weight: 700; color: var(--text); }
   #grid thead th.name { z-index: 3; font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--text3); }
   #grid th.name small { margin-left: 6px; font-size: 11px; font-weight: 500; color: var(--text3); }
   #grid tr.team th, #grid tr.team td { height: 36px; border-bottom: 1px solid var(--border); }
@@ -861,8 +861,9 @@ function renderGrid() {
   const pend = {};
   for (const r of reqs) if (r.status === '대기') pend[r.employee_id + '-' + +r.date.slice(8)] = r.kind;
 
+  const today = new Date().toLocaleDateString('sv');
   let h = '<thead><tr><th class="name">NAME</th>' + days.map(d =>
-    `<th data-col="${d}" class="${isRest(month, d) ? 'rest' : ''}" title="${HOLIDAYS[ymd(month, d)] || ''}"><b>${d}</b>${DOW[dow(month, d)]}</th>`).join('') + '<th class="sum">휴무</th></tr></thead><tbody>';
+    `<th data-col="${d}" class="${[isRest(month, d) && 'rest', ymd(month, d) === today && 'today'].filter(Boolean).join(' ')}" title="${[ymd(month, d) === today && '오늘', HOLIDAYS[ymd(month, d)]].filter(Boolean).join(' · ')}"><b>${d}</b>${DOW[dow(month, d)]}</th>`).join('') + '<th class="sum">휴무</th></tr></thead><tbody>';
   for (const t of TEAMS) {
     const list = emps.filter(e => e.team === t);
     if (!list.length) continue;
