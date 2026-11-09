@@ -73,9 +73,11 @@
   /* 안내 팝업 (브라우저 기본 alert 대신) */
   .notice { margin: auto; width: min(400px, calc(100% - 32px)); padding: 24px; border: 1px solid var(--border); border-radius: 14px; background: var(--white); color: var(--text); box-shadow: 0 16px 48px rgba(16,24,40,.18); animation: fadeUp .2s var(--ease-out); }
   .notice::backdrop { background: rgba(16,24,40,.35); }
-  .notice h3 { font-size: 18px; font-weight: 800; letter-spacing: -.02em; margin-bottom: 10px; }
-  .notice p { font-size: 14px; line-height: 1.6; color: var(--text2); white-space: pre-line; word-break: keep-all; }
-  .notice .btn { margin-top: 20px; }
+  .notice h3 { font-size: 18px; font-weight: 800; letter-spacing: -.02em; line-height: 1.4; word-break: keep-all; }
+  .notice p { margin-top: 10px; font-size: 14px; line-height: 1.6; color: var(--text2); white-space: pre-line; word-break: keep-all; }
+  .notice p:empty { display: none; }
+  .notice-btns { display: flex; gap: 8px; margin-top: 20px; }
+  .notice-btns .btn { flex: 1; }
   .auth-card { max-width: 400px; width: 100%; animation: fadeUp .3s var(--ease-out); }
   .auth-brand { margin-bottom: 26px; }
   .auth-card .hero-meta { margin-bottom: 26px; }
@@ -559,6 +561,19 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+// 사이트 디자인 팝업 (브라우저 alert·confirm 대신). 첫 줄 = 제목, 나머지 = 본문. 확인 → true
+function popup(text, cancel) {
+  const d = $('#notice'), [title, ...rest] = String(text).split('\n');
+  if (d.open) d.close();
+  d.querySelector('h3').innerHTML = esc(title).replace(/\.$/, '<span class="hero-dot">.</span>');
+  d.querySelector('p').textContent = rest.join('\n').trim();
+  d.querySelector('[value=cancel]').hidden = !cancel;
+  d.returnValue = '';
+  d.showModal();
+  return new Promise(r => d.addEventListener('close', () => r(d.returnValue === 'ok'), { once: true }));
+}
+const say = text => popup(text);
+const ask = text => popup(text, true);
 const CLS = { 휴일: 'off', 연차: 'leave', 반차: 'bday', 생일: 'bday', 공가: 'official', 퇴직: 'gone' };
 const label = m => `${+m.slice(0, 4)}년 ${+m.slice(5)}월`;
 const dayLabel = date => `${date.slice(5, 7)}.${date.slice(8)} ${DOW[new Date(date).getDay()]}`;
@@ -739,7 +754,7 @@ $('#pwForm').onsubmit = async ev => {
   pwMode = null;
   $('#pwScreen').hidden = true;
   $('#pw').value = '';
-  if (mode === 'change') { $('#app').hidden = false; alert('비밀번호가 바뀌었어요.'); }
+  if (mode === 'change') { $('#app').hidden = false; say('비밀번호가 바뀌었어요.'); }
   else start();
 };
 
@@ -804,9 +819,9 @@ function renderHead() {
     : `대기 중인 신청 <b>${adminReqs.filter(r => r.status === '대기').length}건</b> · 승인하면 해당 달 스케줄에 바로 들어가요.`;
 }
 
-function go(k) {
+async function go(k) {
   if (addMonth(month, k) < START_MONTH) return;
-  if (dirty && !confirm('저장하지 않은 변경이 있어요. 버리고 이동할까요?')) return;
+  if (dirty && !await ask('저장하지 않은 변경이 있어요. 버리고 이동할까요?')) return;
   month = addMonth(month, k);
   load();
 }
@@ -937,10 +952,10 @@ $('#grid').oncontextmenu = ev => {
   renderGrid();
 };
 $('#peak').onchange =() => { sched.peak = $('#peak').checked; dirty = true; renderGrid(); };
-$('#auto').onclick = () => {
+$('#auto').onclick = async () => {
   const noRot = emps.filter(e => e.team === '런드리24' && !rotations[e.id] && active(e, ymd(month, daysIn(month)))).map(e => e.name);
-  if (noRot.length && !confirm(`로테이션이 없는 런드리24 직원: ${noRot.join(', ')}\n그래도 진행할까요?`)) return;
-  if (!confirm('승인된 신청과 로테이션으로 다시 배치할까요?\n지금 표 내용은 덮어써요.')) return;
+  if (noRot.length && !await ask(`로테이션이 없는 런드리24 직원: ${noRot.join(', ')}\n그래도 진행할까요?`)) return;
+  if (!await ask('승인된 신청과 로테이션으로 다시 배치할까요?\n지금 표 내용은 덮어써요.')) return;
   sched.cells = autoSchedule(emps, month, reqs.filter(r => r.status === '승인'), rotations, sched.peak, adj, conflicts);
   dirty = true;
   renderGrid();
@@ -948,20 +963,20 @@ $('#auto').onclick = () => {
 async function saveSched() {
   const { error } = await sb.from('ws_schedules')
     .upsert({ month, cells: sched.cells, peak: sched.peak, published: sched.published, updated_at: new Date().toISOString() });
-  if (error) { alert('저장 실패: ' + error.message); return false; }
+  if (error) { say('저장 실패: ' + error.message); return false; }
   dirty = false;
   renderGrid();
   return true;
 }
 $('#save').onclick = saveSched;
 $('#publish').onclick = async () => {
-  if (!sched.published && !confirm(`${label(month)} 스케줄을 확정하고 직원에게 공개할까요?`)) return;
+  if (!sched.published && !await ask(`${label(month)} 스케줄을 확정하고 직원에게 공개할까요?`)) return;
   sched.published = !sched.published;
   if (!await saveSched()) sched.published = !sched.published;
 };
 $('#copy').onclick = async () => {
   await navigator.clipboard.writeText(toTSV(emps, month, sched.cells));
-  alert('복사했어요.\n구글시트에서 첫 직원 줄의 "파트" 칸을 선택하고 붙여넣으세요.');
+  say('복사했어요.\n구글시트에서 첫 직원 줄의 "파트" 칸을 선택하고 붙여넣으세요.');
 };
 
 // ---------- 내 스케줄 (달력, 일요일 시작) ----------
@@ -1035,23 +1050,17 @@ function showReqRisk() {
 }
 $('#reqForm').date.addEventListener('input', showReqRisk);
 
-function notice(title, body) {
-  const d = $('#notice');
-  d.querySelector('h3').innerHTML = `${esc(title)}<span class="hero-dot">.</span>`;
-  d.querySelector('p').textContent = body;
-  d.showModal();
-}
 $('#reqForm').onsubmit = async ev => {
   ev.preventDefault();
   const f = ev.target, kind = f.kind.value;
   const used = reqs.filter(r => r.employee_id === me.id && r.kind === '필요휴무' && r.status !== '반려').length;
   const lim = offLimit(me, month, rotations);
-  if (kind === '필요휴무' && used >= lim) return alert(`필요휴무는 이번 달 ${lim}일까지 신청할 수 있어요.`);
+  if (kind === '필요휴무' && used >= lim) return say(`필요휴무는 이번 달 ${lim}일까지 신청할 수 있어요.`);
   const { error } = await sb.from('ws_requests').insert({ employee_id: me.id, date: f.date.value, kind, reason: f.reason.value.trim() });
-  if (error) return alert(error.code === '23505' ? '그 날짜엔 이미 신청이 있어요.' : '신청 실패: ' + error.message);
+  if (error) return say(error.code === '23505' ? '그 날짜엔 이미 신청이 있어요.' : '신청 실패: ' + error.message);
   // 연차·반차·생일(반차)·공가 모두 받침 없이 끝나서 는/가
   const k = kind === '생일' ? '생일(반차)' : kind;
-  if (kind !== '필요휴무') notice(`${k} 신청이 접수됐어요`, `${k}는 오웬스에서 휴가 신청을 해주셔야 정상적으로 반영됩니다.\n${k}가 승인된 후에 오웬스 어플에서도 신청해 주세요.`);
+  if (kind !== '필요휴무') say(`${k} 신청이 접수됐어요.\n${k}는 오웬스에서 휴가 신청을 해주셔야 정상적으로 반영됩니다.\n${k}가 승인된 후에 오웬스 어플에서도 신청해 주세요.`);
   f.reset();
   $('#reqRisk').hidden = true;
   dayCounts = await loadDayCounts(month);
@@ -1059,9 +1068,9 @@ $('#reqForm').onsubmit = async ev => {
 };
 $('#myReqs').onclick = async ev => {
   const id = ev.target.dataset.cancel;
-  if (!id || !confirm('신청을 취소할까요?')) return;
+  if (!id || !await ask('신청을 취소할까요?')) return;
   const { error } = await sb.from('ws_requests').delete().eq('id', id);
-  if (error) return alert(error.message);
+  if (error) return say(error.message);
   dayCounts = await loadDayCounts(month);
   loadReqs();
 };
@@ -1122,16 +1131,16 @@ $('#allReqs').onclick = async ev => {
   const { ok, no } = ev.target.dataset;
   if (!ok && !no) return;
   const r = adminReqs.find(x => x.id == (ok || no)), e = emps.find(x => x.id === r.employee_id);
-  if (no && !confirm(`${e?.name}님의 ${dayLabel(r.date)} ${r.kind} 신청을 반려할까요?`)) return;
+  if (no && !await ask(`${e?.name}님의 ${dayLabel(r.date)} ${r.kind} 신청을 반려할까요?`)) return;
   const { error } = await sb.from('ws_requests').update({ status: ok ? '승인' : '반려' }).eq('id', r.id);
-  if (error) return alert(error.message);
+  if (error) return say(error.message);
   if (ok) {
     const m = r.date.slice(0, 7), s = schedOf(m);
     (s.cells[r.employee_id] ||= {})[+r.date.slice(8)] = r.kind === '필요휴무' ? '휴일' : r.kind;
     if (m === month) await saveSched();
     else {
       const { error: err } = await sb.from('ws_schedules').upsert({ ...s, month: m, updated_at: new Date().toISOString() });
-      if (err) alert('스케줄 반영 실패: ' + err.message);
+      if (err) say('스케줄 반영 실패: ' + err.message);
     }
   }
   await loadAdmin();
@@ -1160,9 +1169,9 @@ const rotExplicit = (id, m) => rotEdit[id + '|' + m] ?? rotData[id + '|' + m] ??
 const rotVal = (e, m) => rotExplicit(e.id, m) || patternRot(e, m);
 
 async function loadRot() {
-  if (Object.keys(rotEdit).length && !confirm('저장하지 않은 로테이션 변경이 있어요. 버릴까요?')) return false;
+  if (Object.keys(rotEdit).length && !await ask('저장하지 않은 로테이션 변경이 있어요. 버릴까요?')) return false;
   const { data, error } = await sb.from('ws_rotations').select('*').in('month', rotMonths());
-  if (error) return alert(error.message);
+  if (error) return say(error.message);
   rotData = Object.fromEntries((data || []).map(r => [r.employee_id + '|' + r.month, r.days]));
   rotEdit = {};
   renderRot();
@@ -1232,16 +1241,16 @@ $('#patList').onclick = async ev => {
   const tr = ev.target.closest('tr'), e = emps.find(x => x.id === +tr.dataset.id);
   const txt = tr.querySelector('.pat-in input').value.trim(), start = tr.querySelector('.pat-start input').value;
   const pattern = txt ? parsePattern(txt) : null;
-  if (txt && !pattern) return alert('형식이 맞지 않아요.\n요일 두 글자씩 > 로 이어서 써 주세요. 예: 일월 > 금토 > 수목');
-  if (pattern && !start) return alert('시작 월을 골라 주세요.');
+  if (txt && !pattern) return say('형식이 맞지 않아요.\n요일 두 글자씩 > 로 이어서 써 주세요. 예: 일월 > 금토 > 수목');
+  if (pattern && !start) return say('시작 월을 골라 주세요.');
   const { error } = await sb.from('ws_employees').update({ rot_pattern: pattern, rot_start: pattern ? start : null }).eq('id', e.id);
-  if (error) return alert('저장 실패: ' + error.message);
+  if (error) return say('저장 실패: ' + error.message);
   if (pattern) {
     // 시작 월부터 직접 입력해 둔 달이 있으면 패턴으로 바꿀지 물어봄
     const { data: old } = await sb.from('ws_rotations').select('month').eq('employee_id', e.id).gte('month', start);
-    if (old?.length && confirm(`${e.name}님은 ${start.replace('-', '.')}부터 직접 입력한 로테이션이 ${old.length}개월 있어요.\n지우고 패턴대로 할까요?\n(취소하면 그 달들은 예외로 그대로 남아요)`)) {
+    if (old?.length && await ask(`${e.name}님은 ${start.replace('-', '.')}부터 직접 입력한 로테이션이 ${old.length}개월 있어요.\n지우고 패턴대로 할까요?\n(취소하면 그 달들은 예외로 그대로 남아요)`)) {
       const { error: delErr } = await sb.from('ws_rotations').delete().eq('employee_id', e.id).gte('month', start);
-      if (delErr) alert('직접 입력값 삭제 실패: ' + delErr.message);
+      if (delErr) say('직접 입력값 삭제 실패: ' + delErr.message);
     }
   }
   await reloadEmps();
@@ -1268,18 +1277,18 @@ async function reloadConflicts() {
 }
 $('#cfAdd').onclick = async () => {
   const x = +$('#cfA').value, y = +$('#cfB').value;
-  if (!x || !y || x === y) return alert('서로 다른 두 사람을 골라 주세요.');
+  if (!x || !y || x === y) return say('서로 다른 두 사람을 골라 주세요.');
   const { error } = await sb.from('ws_conflicts').insert({ a: Math.min(x, y), b: Math.max(x, y) });
-  if (error) return alert(error.code === '23505' ? '이미 등록된 짝이에요.' : '추가 실패: ' + error.message);
+  if (error) return say(error.code === '23505' ? '이미 등록된 짝이에요.' : '추가 실패: ' + error.message);
   reloadConflicts();
 };
 $('#cfList').onclick = async ev => {
   const k = ev.target.dataset.cfdel;
   if (!k) return;
   const [a, b] = k.split('-').map(Number);
-  if (!confirm(`${empName(a)} · ${empName(b)} 짝을 삭제할까요?`)) return;
+  if (!await ask(`${empName(a)} · ${empName(b)} 짝을 삭제할까요?`)) return;
   const { error } = await sb.from('ws_conflicts').delete().eq('a', a).eq('b', b);
-  if (error) return alert('삭제 실패: ' + error.message);
+  if (error) return say('삭제 실패: ' + error.message);
   reloadConflicts();
 };
 $('#rotPrev').onclick = async () => { const s = rotStart; rotStart = clampMonth(addMonth(rotStart, -3)); if (await loadRot() === false) rotStart = s; };
@@ -1292,11 +1301,11 @@ $('#rotSave').onclick = async () => {
   }
   if (ups.length) {
     const { error } = await sb.from('ws_rotations').upsert(ups);
-    if (error) return alert('저장 실패: ' + error.message);
+    if (error) return say('저장 실패: ' + error.message);
   }
   for (const [id, m] of dels) {
     const { error } = await sb.from('ws_rotations').delete().eq('employee_id', id).eq('month', m);
-    if (error) return alert('삭제 실패: ' + error.message);
+    if (error) return say('삭제 실패: ' + error.message);
   }
   rotEdit = {};
   await loadRot();
@@ -1345,7 +1354,7 @@ const endDrag = async () => {
   if (!changes.length) return;
   const res = await Promise.all(changes.map(([id, sort]) => sb.from('ws_employees').update({ sort }).eq('id', id)));
   const err = res.find(r => r.error)?.error;
-  if (err) alert('순서 저장 실패: ' + err.message);
+  if (err) say('순서 저장 실패: ' + err.message);
   reloadEmps();   // 실패해도 DB 순서로 다시 그림
 };
 $('#empList').addEventListener('pointerup', endDrag);
@@ -1383,12 +1392,12 @@ $('#empForm').onsubmit = async ev => {
     row.sort = Math.max(0, ...emps.filter(x => x.team === row.team && x.id !== editingEmp?.id).map(x => x.sort || 0)) + 1;
   row.is_admin = ef('is_admin').checked;
   row.must_change_pw = ef('must_change_pw').checked;
-  if (row.start_date && row.end_date && row.end_date < row.start_date) return alert('퇴직일이 입사일보다 빨라요.');
-  if (editingEmp?.id === me.id && !row.is_admin) return alert('본인의 관리자 권한은 뺄 수 없어요.');
+  if (row.start_date && row.end_date && row.end_date < row.start_date) return say('퇴직일이 입사일보다 빨라요.');
+  if (editingEmp?.id === me.id && !row.is_admin) return say('본인의 관리자 권한은 뺄 수 없어요.');
   const { error } = editingEmp
     ? await sb.from('ws_employees').update(row).eq('id', editingEmp.id)
     : await sb.from('ws_employees').insert(row);
-  if (error) return alert(error.code === '23505' ? '이미 등록된 이메일이에요.' : '저장 실패: ' + error.message);
+  if (error) return say(error.code === '23505' ? '이미 등록된 이메일이에요.' : '저장 실패: ' + error.message);
   fillEmp(null);
   reloadEmps();
 };
@@ -1398,16 +1407,16 @@ $('#empList').onclick = async ev => {
   const e = emps.find(x => x.id == (edit || del));
   if (!e) return;
   if (edit) { fillEmp(e); return $('#empForm').scrollIntoView({ behavior: 'smooth' }); }
-  if (e.id === me.id) return alert('본인은 삭제할 수 없어요.');
-  if (!confirm(`${e.name}님을 삭제할까요?\n\n신청 내역도 함께 지워지고 되돌릴 수 없어요.\n퇴사자는 삭제 대신 ‘퇴직일’을 넣으면 지난 스케줄에 그대로 남아요.`)) return;
+  if (e.id === me.id) return say('본인은 삭제할 수 없어요.');
+  if (!await ask(`${e.name}님을 삭제할까요?\n\n신청 내역도 함께 지워지고 되돌릴 수 없어요.\n퇴사자는 삭제 대신 ‘퇴직일’을 넣으면 지난 스케줄에 그대로 남아요.`)) return;
   const { error } = await sb.from('ws_employees').delete().eq('id', e.id);
-  if (error) return alert('삭제 실패: ' + error.message);
+  if (error) return say('삭제 실패: ' + error.message);
   if (editingEmp?.id === e.id) fillEmp(null);
   reloadEmps();
 };
 
 start();
 </script>
-<dialog id="notice" class="notice"><form method="dialog"><h3></h3><p></p><button class="btn btn-primary btn-lg btn-block">확인</button></form></dialog>
+<dialog id="notice" class="notice"><form method="dialog"><h3></h3><p></p><div class="notice-btns"><button value="cancel" class="btn btn-lg">취소</button><button value="ok" class="btn btn-primary btn-lg">확인</button></div></form></dialog>
 </body>
 </html>
